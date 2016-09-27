@@ -1,5 +1,6 @@
 (ns e85th.ui.net.rpc
-  (:require [ajax.core :as ajax]))
+  (:require [ajax.core :as ajax]
+            [e85th.ui.util :as u]))
 
 (def ^:private method-name->method
   {:get ajax/GET
@@ -9,18 +10,26 @@
 
 (defn new-ajax-request
   "Returns a map that can be used by call to actually make the ajax request."
-  [uri method on-success on-error]
-  {:uri uri
-   :method method
+  [method uri params on-success on-error]
+  {:method method
+   :uri uri
+   :params params
    :handler on-success
    :error-handler on-error})
+
+(defn new-re-frame-request
+  [method uri params ok err]
+  {:method method
+   :uri uri
+   :params params
+   :on-success (u/as-vector ok)
+   :on-failure (u/as-vector err)})
 
 (defn with-json-format
   "Merges in directives to indicate a json request/response and keywords."
   [request]
-  (merge {:format :json
-          :response-format :json
-          :keywords? true}
+  (merge {:format (ajax/json-request-format)
+          :response-format (ajax/json-response-format {:keywords? true})}
          request))
 
 (defn with-headers

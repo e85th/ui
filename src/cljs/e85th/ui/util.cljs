@@ -77,3 +77,20 @@
 (defn remove-cookie
   [name]
   (.remove goog.net.cookies name))
+
+
+(defn set-window-location!
+  [url]
+  (set! js/window.location url))
+
+(defn element-by-id
+  [id]
+  (js/document.getElementById id))
+
+(defn element-exists?
+  [id]
+  (some? (element-by-id id)))
+
+(defn element-value
+  [id]
+  (some-> id element-by-id .-value))

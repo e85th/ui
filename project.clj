@@ -7,6 +7,7 @@
                  [org.clojure/clojurescript "1.9.229"]
                  [re-frame "0.8.0"]
                  [prismatic/schema "1.1.2"]
+                 [funcool/hodgepodge "0.1.4"] ;; local storage
                  ;; for development
                  [devcards "0.2.1-7"]
                  [cljs-ajax "0.5.8"]
