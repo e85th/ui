@@ -32,6 +32,13 @@
           :response-format (ajax/json-response-format {:keywords? true})}
          request))
 
+(defn with-transit-format
+  "Merges in directives to indicate a json request/response and keywords."
+  [request]
+  (merge {:format (ajax/transit-request-format)
+          :response-format (ajax/transit-response-format)}
+         request))
+
 (defn with-headers
   "merges in headers in the request. headers is a map of String keys and values."
   [request headers]

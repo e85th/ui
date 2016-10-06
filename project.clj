@@ -1,4 +1,4 @@
-(defproject e85th/ui "0.1.2"
+(defproject e85th/ui "0.1.3"
   :description "Frontend UI code."
   :url "https://github.com/e85th/ui"
   :license {:name "Apache License 2.0"
@@ -11,7 +11,8 @@
                  ;; for development
                  [devcards "0.2.1-7"]
                  [cljs-ajax "0.5.8"]
-                 [com.taoensso/timbre "4.3.1"]]
+                 [kioo "0.4.2"]
+                 [com.taoensso/timbre "4.6.0"]]
 
   :source-paths ["src/clj" "src/cljs" "src/cljc"]
   :cljsbuild {:builds [{:source-paths ["src/cljs"]}]}

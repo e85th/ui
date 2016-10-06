@@ -94,3 +94,23 @@
 (defn element-value
   [id]
   (some-> id element-by-id .-value))
+
+(defn iso-date-str->goog-date
+  [s]
+  (goog.date.fromIsoString s))
+
+(defn goog-date->iso-str
+  [dt]
+  (when dt
+    (.toISOString (js/Date. (.getTime dt)))))
+
+
+(defn feature-available?
+  "object-name can be something like Notification or WebSocket as a string.
+   Answers true if the feature is available."
+  [object-name]
+  (some? (aget js/window object-name)))
+
+
+(def websockets-available? (partial feature-available? "WebSocket"))
+(def notifications-available? (partial feature-available? "Notification"))

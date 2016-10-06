@@ -1,1 +1,246 @@
-(ns e85th.ui.rf.inputs)
+(ns e85th.ui.rf.inputs
+  (:require [re-frame.core :as rf]
+            [reagent.core :as reagent]
+            [reagent.ratom :as ratom]
+            [taoensso.timbre :as log]
+            [kioo.reagent :as k :refer-macros [defsnippet deftemplate]]
+            [devcards.core :as d :refer-macros [defcard defcard-rg]]
+            [e85th.ui.places :as places]
+            [e85th.ui.util :as u]
+            [goog.events :as events])
+  (:import [goog.i18n DateTimeFormat DateTimeParse]
+           [goog.ui InputDatePicker]
+           [goog.date Date DateTime]
+           [goog.fx DragListGroup DragListDirection]))
+
+(def input-html "templates/e85th/ui/rf/inputs.html")
+
+(defn dispatch-event
+  [rf-event event-value]
+  (rf/dispatch (conj (u/as-vector rf-event) event-value)))
+
+(defn new-on-change-handler
+  [rf-event event-reader-fn]
+  (fn [e]
+    (dispatch-event rf-event (event-reader-fn e))))
+
+(defn set-attrs-and-events
+  [attrs-map events-map]
+  ;; seq on a map results in [[k1 v1] [k2 v2]]
+  (k/do->
+   (apply k/set-attr (flatten (seq attrs-map)))
+   (apply k/listen (flatten (seq events-map)))))
+
+(defsnippet error-block* "templates/e85th/ui/rf/inputs.html" [:span.error-block :> any-node]
+  [error]
+  {[:.error-message] (k/content error)})
+
+(defn error-block
+  [error]
+  (if error
+    (error-block* error)
+    ""))
+
+(defsnippet standard-text-input* "templates/e85th/ui/rf/inputs.html" [:div.standard-text-input]
+  [attrs-map events-map error]
+  {[:input] (k/do->
+             (set-attrs-and-events attrs-map events-map)
+             (k/after (error-block error)))})
+
+(defn rf-text-input
+  "re-framed text-input, subscribes and updates, dispatches on-change event
+  error-sub-or-fn can be either a keyword, vector (for re-frame subscription),
+  nil or a function. If it's a function, it takes the current text value and
+  returns nil if no validation errors or a string indicating the error message.
+  The view is a function that takes attrs-map, events-map and error-message."
+  [view error-sub-or-fn sub event attrs-map events-map]
+  (let [text (rf/subscribe (u/as-vector sub))
+        error (cond
+                (nil? error-sub-or-fn) (atom nil)
+                (fn? error-sub-or-fn) nil
+                (vector? error-sub-or-fn) (rf/subscribe error-sub-or-fn)
+                (keyword? error-sub-or-fn) (rf/subscribe [error-sub-or-fn])
+                :else (throw (js/Error. (str "Don't know how to deal with type: " (type error-sub-or-fn)))))]
+    (fn [view error-sub-or-fn sub event attrs-map events-map]
+      ;; error will be nil only if error-sub-or-fn was a function during setup
+      (let [text-error (if (fn? error-sub-or-fn)
+                         (error-sub-or-fn @text)
+                         @error)]
+        [view
+         (assoc attrs-map :value (or @text ""))
+         (assoc events-map :on-change (new-on-change-handler event u/event-value))
+         text-error]))))
+
+(defn new-text-input
+  ([view error-sub-or-fn sub event]
+   (new-text-input view error-sub-or-fn sub event {}))
+  ([view error-sub-or-fn sub event attrs-map]
+   (new-text-input view error-sub-or-fn sub event attrs-map {}))
+  ([view error-sub-or-fn sub event attrs-map events-map]
+   [rf-text-input view error-sub-or-fn sub event attrs-map events-map]))
+
+
+(def ^{:doc "Text input field without visual cues for error validation."}
+  std-text (partial new-text-input standard-text-input* nil))
+
+(def ^{:doc "Text input field with validaiton and visual cues."}
+  text (partial new-text-input standard-text-input*))
+
+(defsnippet url* "templates/e85th/ui/rf/inputs.html" [:div.url-input]
+  [attrs-map events-map]
+  {[:input] (set-attrs-and-events attrs-map events-map)})
+
+(def ^{:doc "URL input field without visual validation except for what the browser supports"}
+  std-url (partial new-text-input url* nil))
+
+(def ^{:doc "URL input field with visual validation."}
+  url (partial new-text-input url*))
+
+(defsnippet standard-checkbox* "templates/e85th/ui/rf/inputs.html" [:div.standard-checkbox]
+  [attrs-map events-map label]
+  {[:input] (k/do->
+             (set-attrs-and-events attrs-map events-map)
+             (if label
+               (k/after label)
+               identity))})
+
+(defn rf-checkbox
+  "re-framed text-input, subscribes and updates, dispatches on-change event"
+  [view sub event attrs-map events-map label]
+  (let [checked? (rf/subscribe (u/as-vector sub))]
+    (fn [view sub event attrs-map events-map]
+      ;; @checked? should be a boolean
+      [view
+       (assoc attrs-map :checked @checked?)
+       (assoc events-map :on-change (new-on-change-handler event u/event-checked))
+       label])))
+
+
+(defn checkbox
+  ([sub event]
+   (checkbox sub event nil))
+  ([sub event label]
+   [rf-checkbox standard-checkbox* sub event {} {} label]))
+
+
+(defsnippet standard-button* "templates/e85th/ui/rf/inputs.html" [:span.standard-button]
+  [attrs-map events-map content busy?]
+  {[:button] (k/do->
+              (set-attrs-and-events attrs-map events-map)
+              (k/content content)
+              ((if busy? k/add-class k/remove-class) "disabled"))
+   [:.busy-indicator] (if busy?
+                        identity
+                        (k/substitute ""))})
+
+(defn rf-button
+  ([view event content]
+   (rf-button view nil event content))
+  ([view busy-sub event content]
+   (let [busy? (if busy-sub
+                 (rf/subscribe (u/as-vector busy-sub))
+                 (atom false))
+         event-v (u/as-vector event)]
+     (fn [view busy-sub event content]
+       [view {} {:on-click #(rf/dispatch event-v)} content @busy?]))))
+
+(defn button
+  ([event content]
+   (button event content))
+  ([sub event content]
+    [rf-button standard-button* sub event content]))
+
+
+(defn rf-label
+  [view sub]
+  (let [v (rf/subscribe (u/as-vector sub))]
+    (fn [view sub]
+      [view @v])))
+
+(defn label
+  [sub]
+  [rf-label :p.form-control-static sub])
+
+
+(defn rf-select
+  [view selected-sub options-sub attrs-map events-map select-description]
+  (let [selected (rf/subscribe (u/as-vector selected-sub))
+        options (rf/subscribe (u/as-vector options-sub))]
+    (fn [view selected-sub options-sub attrs-map events-map select-description]
+      (let [option-tags (map (fn [{:keys [id name]}]
+                               [:option {:key id :value id} name])
+                             @options)
+            option-tags (conj option-tags [:option {:key -1 :value -1 :disabled true} select-description])]
+        [view
+         (merge attrs-map events-map {:value (or @selected "")})
+         option-tags]))))
+
+(defn select
+  "options-sub should yield a seq of  maps with keys :id and :name."
+  ([selected-sub event options-sub]
+   (select selected-sub event options-sub "Select"))
+  ([selected-sub event options-sub select-description]
+   [rf-select :select selected-sub options-sub {} {:on-change #(rf/dispatch (conj (u/as-vector event) (u/event-value %)))} select-description]))
+
+;;--- Google Places / Address Suggest
+(defsnippet places-autocomplete* "templates/e85th/ui/rf/inputs.html" [:div.places-autocomplete]
+  [element-id display-address-ratom]
+  {[:input] (k/do->
+             (k/set-attr :id element-id :value @display-address-ratom)
+             (k/listen :on-change #(reset! display-address-ratom (u/event-value %))))})
+
+(defn places-autocomplete-cb
+  ""
+  [display-address-ratom on-change]
+  (let [element-id (str (gensym "places-autocomplete-"))]
+    (reagent/create-class
+     {:display-name "places-autocomplete"
+      :reagent-render (fn [display-address-ratom on-change]
+                        [places-autocomplete* element-id display-address-ratom])
+      :component-did-mount (fn []
+                             (let [autocomplete (places/new-autocomplete element-id)
+                                   handler #(on-change (places/parse-selected-place autocomplete))]
+                               (places/add-autocomplete-listener autocomplete handler)))})))
+
+(defn places-autocomplete
+  " "
+  [sub event]
+  (let [v (rf/subscribe (u/as-vector sub))]
+    (fn [sub event]
+      [places-autocomplete-cb (reagent/atom @v) #(dispatch-event event %)])))
+
+;;-- Date Picker
+(defn date-picker-cb
+  "Date picker with callback for composing components in certain cases."
+  ([date-value on-change]
+   [date-picker-cb "Date" date-value on-change])
+  ([placeholder date-value on-change]
+   (let [dom-id (str (gensym "date-picker-"))
+         date-picker (atom nil)]
+     (reagent/create-class
+      {:display-name "date-picker"
+       :reagent-render (fn [placeholder date-value on-change]
+                         (when (and date-value @date-picker)
+                           (.setDate @date-picker date-value))
+                         [:input {:id dom-id :placeholder placeholder}])
+       :component-did-mount (fn []
+                              (let [element (goog.dom.getElement dom-id)]
+                                (.decorate @date-picker element)
+                                (.setShowWeekNum (.getDatePicker @date-picker) false)
+                                (some->> date-value (.setDate @date-picker))))
+       :component-will-mount (fn []
+                               (let [date-fmt-str "MM/dd/yyyy"
+                                     fmt (DateTimeFormat. date-fmt-str)
+                                     parser (DateTimeParse. date-fmt-str)]
+                                 (reset! date-picker (InputDatePicker. fmt parser))
+                                 (events/listen @date-picker goog.ui.DatePicker.Events.CHANGE #(on-change (some-> % .-date)))))
+       :component-will-unmount (fn []
+                                 (some-> @date-picker .dispose)
+                                 (reset! date-picker nil))}))))
+(defn date-picker
+  ([sub event]
+   [date-picker sub event "Date"])
+  ([sub event placeholder]
+   (let [date-value (rf/subscribe (u/as-vector sub))]
+     (fn [sub event placeholder]
+       [date-picker-cb placeholder @date-value #(dispatch-event event %)]))))
