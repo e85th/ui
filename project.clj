@@ -15,7 +15,7 @@
                  [com.taoensso/timbre "4.6.0"]]
 
   :source-paths ["src/clj" "src/cljs" "src/cljc"]
-  :cljsbuild {:builds [{:source-paths ["src/cljs"]}]}
+  :cljsbuild {:builds [{:source-paths ["src/cljs" "src/cljc"]}]}
 
   :plugins [[codox "0.8.13"]
             [test2junit "1.1.2"]
