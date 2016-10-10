@@ -1,5 +1,6 @@
 (ns e85th.ui.util
   (:require [goog.string :as gs]
+            [clojure.string :as string]
             [goog.net.cookies]))
 
 (defn nan?
@@ -96,6 +97,7 @@
   (some-> id element-by-id .-value))
 
 (defn iso-date-str->goog-date
+  "Returns a goog.date.DateTime"
   [s]
   (goog.date.fromIsoString s))
 
@@ -114,3 +116,13 @@
 
 (def websockets-available? (partial feature-available? "WebSocket"))
 (def notifications-available? (partial feature-available? "Notification"))
+
+(defn prune-map
+  "Prunes the map according to the "
+  ([m]
+   (prune-map m (fn [[k v]]
+                  (or (nil? v)
+                      (and (string? v)
+                           (string/blank? v))))))
+  ([m pred?]
+   (into {} (remove pred? m))))
