@@ -274,7 +274,7 @@
     (.typeahead (clj->js typeahead-options) dataset)
     (.bind "typeahead:select" suggestion-selected-fn)))
 
-(defsnippet typeahead* "templates/e85th/ui/rf/inputs.html" [:input.search-control]
+(defsnippet typeahead* "templates/e85th/ui/rf/inputs.html" [:.search-control]
   [attrs-map events-map]
   {[:.search-control] (set-attrs-and-events attrs-map events-map)})
 
