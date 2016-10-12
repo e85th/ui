@@ -126,3 +126,8 @@
                            (string/blank? v))))))
   ([m pred?]
    (into {} (remove pred? m))))
+
+
+(defn stringify-json
+  [x]
+  (js/JSON.stringify x))

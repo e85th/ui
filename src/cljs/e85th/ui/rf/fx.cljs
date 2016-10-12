@@ -6,7 +6,9 @@
 
 (rf/reg-fx
  :local-storage
- (fn [{:keys [assoc dissoc]}]
+ (fn [{:keys [assoc dissoc clear]}]
+   (when clear
+     (hp/clear! hp/local-storage))
    (when dissoc
      (apply dissoc! hp/local-storage dissoc))
    (doseq [[k v] assoc]
