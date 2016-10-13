@@ -7,6 +7,7 @@
             [devcards.core :as d :refer-macros [defcard defcard-rg]]
             [schema.core :as s]
             [e85th.ui.places :as places]
+            [e85th.ui.rf.multi-select :as ms]
             [e85th.ui.util :as u]
             [goog.events :as events])
   (:import [goog.i18n DateTimeFormat DateTimeParse]
@@ -367,3 +368,6 @@
       (log/infof "remote url: %s" remote-url)
       [inputs/typeahead {:placeholder "User Search"} typeahead-opts users-dataset e/current-user-selected]))
   )
+
+
+(def multi-select ms/multi-select)

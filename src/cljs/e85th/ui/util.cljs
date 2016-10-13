@@ -131,3 +131,12 @@
 (defn stringify-json
   [x]
   (js/JSON.stringify x))
+
+(defn selected-option-values
+  "Answers with a seq of selected option values from an html select element."
+  [dom-id]
+  (reduce (fn [ans opt]
+            (cond-> ans
+              (.-selected opt) (conj (.-value opt))))
+          []
+          (some-> dom-id element-by-id .-options array-seq)))
