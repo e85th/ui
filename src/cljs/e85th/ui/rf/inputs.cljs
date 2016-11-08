@@ -224,7 +224,7 @@
      (reagent/create-class
       {:display-name "date-picker"
        :reagent-render (fn [placeholder date-value on-change]
-                         (when (and date-value @date-picker)
+                         (when @date-picker
                            (.setDate @date-picker date-value))
                          [:input {:id dom-id :placeholder placeholder}])
        :component-did-mount (fn []
