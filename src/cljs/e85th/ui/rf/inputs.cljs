@@ -148,7 +148,7 @@
 
 (defn button
   ([event content]
-   (button event content))
+   (button nil event content))
   ([sub event content]
     [rf-button standard-button* sub event content]))
 
@@ -161,7 +161,7 @@
 
 (defn label
   [sub]
-  [rf-label :p.form-control-static sub])
+  [rf-label :span.form-control-static sub])
 
 
 (defn rf-select
@@ -172,9 +172,12 @@
       (let [option-tags (map (fn [{:keys [id name]}]
                                [:option {:key id :value id} name])
                              @options)
-            option-tags (conj option-tags [:option {:key -1 :value -1 :disabled true} select-description])]
+            option-tags (conj option-tags [:option {:key -1 :value -1 :disabled true} select-description])
+            ;; to handle boolean false
+            opt-value (if (some? @selected) @selected -1)]
+        ;(log/infof "selected: %s, opt-value: %s" @selected opt-value)
         [view
-         (merge attrs-map events-map {:value (or @selected "")})
+         (merge attrs-map events-map {:value opt-value})
          option-tags]))))
 
 (defn select
