@@ -2,6 +2,7 @@
   "Google places functionality."
   (:require [schema.core :as s]
             [clojure.string :as string]
+            [taoensso.timbre :as log]
             [e85th.ui.util :as u]))
 
 (s/defn compose-address
@@ -19,11 +20,14 @@
 
 
 (s/defn new-autocomplete
-  "Turns the element-id into an address autocompleter. Returns the google.maps.place.Autocomplete instance."
-  [element-id :- s/Str]
-  (let [config (clj->js {:types ["geocode"] ;; setting to address does not bring up neighborhoods
-                         :componentRestrictions {:country "us"}})]
-    (new google.maps.places.Autocomplete (u/element-by-id element-id) config)))
+  "Turns the element-id into an address autocompleter. Returns the google.maps.place.Autocomplete instance.
+   You can specify a clojure map of config as described here: https://developers.google.com/places/web-service/autocomplete"
+  ([element-id :- s/Str]
+   (let [config {:componentRestrictions {:country "us"}}]
+     (new-autocomplete element-id config)))
+  ([element-id :- s/Str config]
+   (let [config (clj->js config)]
+     (new google.maps.places.Autocomplete (u/element-by-id element-id) config))))
 
 (s/defn add-autocomplete-listener
   "autocomplete is the google.maps.place.Autocomplete instance and callback-fn is the no arg callback function."
@@ -65,7 +69,9 @@
   (let [place (.getPlace autocomplete)
         formatted-address (or (.-formatted_address place) "")
         geocode (place->geocode place)
+        _ (log/infof "selected place: %s" geocode)
         address-components (->> place .-address_components (map address-component->map))
+        _ (log/infof "selected address comps: %s" address-components)
         address (reduce (fn [ans {:keys [long-name short-name types] :as le-place}]
                               (cond
                                 (some #{"street_number"} types) (assoc ans :street-number long-name)
