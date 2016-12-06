@@ -16,7 +16,7 @@
    server push event arrives. The on-event-fn takes a variant with the event keyword as the first
    item in the vector. eg [:event/id {:foo 42}]"
   [on-event-fn]
-  (assert on-event-fn)
+  (assert on-event-fn "nil on-event-fn")
   (swap! fan-out-fns conj on-event-fn))
 
 (defn fanout-event
@@ -37,9 +37,9 @@
 
 (defmethod sente-event-handler :chsk/state
   [{:keys [?data] :as msg}]
-  (if (= ?data {:first-open? true})
+  (if (get-in ?data [1 :first-open?] false)
     (log/infof "Channel socket successfully established!")
-    (log/infof "Channel socket state change: %s" ?data)))
+    (log/infof "Channel socket state changed.")))
 
 (defmethod sente-event-handler :chsk/recv
   [{:keys [?data] :as msg}]
