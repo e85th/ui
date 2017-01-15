@@ -1,4 +1,4 @@
-(defproject e85th/ui "0.1.12"
+(defproject e85th/ui "0.1.13"
   :description "Frontend UI code."
   :url "https://github.com/e85th/ui"
   :license {:name "Apache License 2.0"
@@ -9,6 +9,7 @@
                  [com.taoensso/sente "1.11.0"] ; websockets
                  [prismatic/schema "1.1.2"]
                  [funcool/hodgepodge "0.1.4"] ;; local storage
+                 [com.andrewmcveigh/cljs-time "0.4.0"]
                  ;; for development
                  [devcards "0.2.1-7"]
                  [cljs-ajax "0.5.8"]

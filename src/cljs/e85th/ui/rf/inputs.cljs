@@ -8,6 +8,7 @@
             [schema.core :as s]
             [e85th.ui.places :as places]
             [e85th.ui.rf.multi-select :as ms]
+            [e85th.ui.rf.paginator :as paginator]
             [e85th.ui.util :as u]
             [goog.events :as events])
   (:import [goog.i18n DateTimeFormat DateTimeParse]
@@ -374,3 +375,5 @@
 
 
 (def multi-select ms/multi-select)
+
+(def paginator paginator/paginator)
