@@ -1,5 +1,7 @@
 (ns e85th.ui.net.rpc
   (:require [ajax.core :as ajax]
+            [ajax.edn :as ajax-edn]
+            [e85th.ui.transit-io :as transit-io]
             [e85th.ui.util :as u]))
 
 (def ^:private method-name->method
@@ -32,12 +34,19 @@
           :response-format (ajax/json-response-format {:keywords? true})}
          request))
 
+(defn with-edn-format
+  [request]
+  (merge {:format (ajax-edn/edn-request-format)
+          :response-format (ajax-edn/edn-response-format)}
+         request))
+
 (defn with-transit-format
   "Merges in directives to indicate a json request/response and keywords."
   [request]
   (merge {:format (ajax/transit-request-format)
-          :response-format (ajax/transit-response-format)}
+          :response-format (ajax/transit-response-format {:raw false :reader transit-io/reader})}
          request))
+
 
 (defn with-headers
   "merges in headers in the request. headers is a map of String keys and values."

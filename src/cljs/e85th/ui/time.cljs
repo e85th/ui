@@ -27,6 +27,9 @@
   [obj]
   (instance? DateTime obj))
 
+(defn ts->str
+  [ts]
+  (tf/unparse (tf/formatters :basic-date-time) ts))
 
 (defn to-date
   [dt]
