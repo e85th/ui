@@ -39,14 +39,23 @@
   [e]
   (-> e .-target .-value))
 
+(defn event-target-value
+  "reads the event target's value"
+  [e]
+  (-> e .-target .-value))
+
 (defn event-checked
   "reads the event target's checked property"
   [e]
   (-> e .-target .-checked))
 
-(defn key-event-value
+(defn key-event-code
   [e]
   (.-keyCode e))
+
+(defn key-event-value
+  [e]
+  (.-key e))
 
 
 (defn url-decode

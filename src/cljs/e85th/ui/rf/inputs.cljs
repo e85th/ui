@@ -14,6 +14,7 @@
   (:import [goog.i18n DateTimeFormat DateTimeParse]
            [goog.ui InputDatePicker]
            [goog.date Date DateTime]
+           [goog.ui.ac Remote]
            [goog.fx DragListGroup DragListDirection]))
 
 (def input-html "templates/e85th/ui/rf/inputs.html")
@@ -49,6 +50,13 @@
   {[:input] (k/do->
              (set-attrs-and-events attrs-map events-map)
              (k/after (error-block error)))})
+
+(defsnippet standard-password-input* "templates/e85th/ui/rf/inputs.html" [:div.standard-password-input]
+  [attrs-map events-map error]
+  {[:input] (k/do->
+             (set-attrs-and-events attrs-map events-map)
+             (k/after (error-block error)))})
+
 
 (defn rf-text-input
   "re-framed text-input, subscribes and updates, dispatches on-change event
@@ -88,6 +96,12 @@
 
 (def ^{:doc "Text input field with validaiton and visual cues."}
   text (partial new-text-input standard-text-input*))
+
+(def ^{:doc "Password input field without visual cues for error validation."}
+  std-password (partial new-text-input standard-password-input* nil))
+
+(def ^{:doc "Password input field with validaiton and visual cues."}
+  password (partial new-text-input standard-password-input*))
 
 (defsnippet url* "templates/e85th/ui/rf/inputs.html" [:div.url-input]
   [attrs-map events-map]
@@ -253,6 +267,33 @@
      (fn [sub event placeholder]
        [date-picker-cb placeholder @date-value #(dispatch-event event %)]))))
 
+;;-- Google Closure Autocomplete
+(s/defn autocomplete-cb
+  "headers is a map of str->str"
+  [url headers display-value-ratom on-select]
+  (let [dom-id (str (gensym "auto-complete-"))
+        auto-complete (atom nil)]
+    (reagent/create-class
+     {:display-name "auto-complete"
+      :reagent-render (fn [url headers display-value-ratom on-select]
+                        [:input {:id dom-id
+                                 :value @display-value-ratom
+                                 :on-change #(reset! display-value-ratom (u/event-value %))}])
+      :component-did-mount (fn []
+                             (let [element (goog.dom.getElement dom-id)]
+                               (reset! auto-complete (Remote. url element))
+                               (-> @auto-complete (.setHeaders (clj->js headers)))
+                               (events/listen @auto-complete goog.ui.ac.AutoComplete.EventType.SELECT #(log/infof "autocomplete selecte event"))))
+      :component-will-unmount (fn []
+                                (some-> @auto-complete .dispose)
+                                (reset! auto-complete nil))})))
+
+(defn autocomplete
+  [url headers sub event]
+  (let [display-value (rf/subscribe (u/as-vector sub))]
+    (fn [url headers sub event]
+      [autocomplete-cb url headers (reagent/atom @display-value) #(dispatch-event event %)])))
+
 
 ;;--  Typeahead Autocomplete
 (s/defn new-bloodhound
@@ -310,6 +351,8 @@
                                 (set-display display-value)))}))))
 
 (defn typeahead
+  ([selection-event attrs-map typeahead-opts dataset-opts]
+   (typeahead nil selection-event attrs-map typeahead-opts dataset-opts))
   ([text-sub selection-event attrs-map typeahead-opts dataset-opts]
    (typeahead text-sub selection-event nil attrs-map typeahead-opts dataset-opts ))
 
@@ -320,7 +363,7 @@
 
    ;(log/infof "text-sub: %s, sel-ev: %s, blur: %s, attrs: %s, type: %s data: %s"  text-sub selection-event blur-event attrs-map typeahead-opts dataset-opts)
 
-   (let [text (rf/subscribe (u/as-vector text-sub))]
+   (let [text (or (some-> text-sub u/as-vector rf/subscribe) (atom ""))]
      (fn [_ _ _ _ _ _ _]
        [typeahead-cb view attrs-map (or @text "") typeahead-opts dataset-opts
         #(dispatch-event selection-event %)
@@ -377,3 +420,118 @@
 (def multi-select ms/multi-select)
 
 (def paginator paginator/paginator)
+
+
+(defn tag-editor
+  ([tag-sub tag-added-event tag-removed-event]
+   (tag-editor tag-sub
+    {:onTagAdd (fn [event tag]
+                 (dispatch-event tag-added-event tag))
+     :onTagRemove (fn [event tag]
+                    (dispatch-event tag-removed-event tag))}))
+  ([tag-sub opts]
+   (let [element-id (str (gensym "tag-editor-"))
+         tags (rf/subscribe (u/as-vector tag-sub))
+         taggle (atom nil)]
+     (reagent/create-class
+      {:display-name "tag-editor"
+       :reagent-render (fn []
+                         (log/infof "subscribed tags: %s" @tags)
+                         (when @taggle
+                           (.setOptions @taggle (clj->js (merge opts {:tags @tags}))))
+                         [:div {:id element-id :class "tag-container"}])
+       :component-did-mount (fn []
+                              (reset! taggle (js/Taggle. element-id
+                                                         (clj->js (merge opts {:tags (or @tags [])})))))}))))
+
+(defn init-awesomplete
+  [dom-selector awesomplete-atom display->item-atom selection-event on-select-fn]
+  (reset! awesomplete-atom (js/Awesomplete. (.querySelector js/document dom-selector) #js {:minChars 1}))
+  (.on (js/$ dom-selector) "awesomplete-selectcomplete" (fn [e]
+                                                          (let [selected (u/event-value e)
+                                                                selection (@display->item-atom selected)]
+                                                            (if selection-event
+                                                              (dispatch-event selection-event selection)
+                                                              (on-select-fn selection))))))
+(defn awesomplete
+  "format-fn should produce unique values for inputs"
+  [suggestions-sub text-changed-event selection-event format-fn]
+  (let [dom-id (str (gensym "awesomplete-"))
+        dom-sel (str "#" dom-id)
+        awesomplete (atom nil)
+        suggestions (rf/subscribe (u/as-vector suggestions-sub))
+        display->item (atom {})
+        display-ratom (reagent/atom "")
+        on-change-fn (fn [e]
+                       (let [text (u/event-value e)]
+                         (reset! display-ratom text)
+                         (dispatch-event text-changed-event text)))]
+    (reagent/create-class
+     {:display-name "awesomplete"
+      :reagent-render (fn [_ _ _]
+                        (let [suggested-items @suggestions]
+                          (when (and @awesomplete suggested-items)
+                            (reset! display->item (reduce (fn [ans x]
+                                                            (assoc ans (format-fn x) x))
+                                                          {}
+                                                          suggested-items))
+                            (set! (.-list @awesomplete) (clj->js (keys @display->item)))))
+                        [:input {:id dom-id
+                                 :value @display-ratom
+                                 :on-change on-change-fn}])
+      :component-did-mount (fn []
+                             (init-awesomplete dom-sel awesomplete display->item selection-event nil))})))
+
+(defn init-taggle
+  [taggle-input-sel text-changed-event]
+  (let []
+    ))
+
+(defn tag-editor-suggester
+  [tags-sub suggestions-sub text-changed-event tag-added-event tag-removed-event format-fn]
+  (let [element-id (str (gensym "tag-editor-"))
+        awesomplete (atom nil)
+        taggle-input-sel (str "#" element-id " .taggle_input")
+        suggestions (rf/subscribe (u/as-vector suggestions-sub))
+        display->item (atom {})
+        taggle (atom nil)
+        tags (rf/subscribe (u/as-vector tags-sub))
+        opts {:onTagAdd (fn [e tag]
+                          (dispatch-event tag-added-event tag))
+              :onTagRemove (fn [event tag]
+                             (dispatch-event tag-removed-event tag))}]
+
+    (reagent/create-class
+     {:display-name "tag-editor"
+      :reagent-render (fn [_ _ _ _ _ _]
+                        (let [suggested-items @suggestions]
+                          (log/infof "suggested-items: %s, display->item: %s" suggested-items @display->item)
+                          ;(log/infof "awesomplete is: %s" @awesomplete)
+                          (when (and @awesomplete suggested-items)
+                            (reset! display->item (reduce (fn [ans x]
+                                                            (assoc ans (format-fn x) x))
+                                                          {}
+                                                          suggested-items))
+                            (log/infof "display-item keys: %s" (keys @display->item))
+                            (set! (.-list @awesomplete) (clj->js (or (keys @display->item)
+                                                                     []))))
+                          (when @taggle
+                            (.setOptions @taggle (clj->js (merge opts {:tags (or @tags [])}))))
+                          [:div {:id element-id :class "tag-container"}]))
+      :component-did-mount (fn []
+                             (reset! taggle (js/Taggle. element-id (clj->js (merge opts {:tags (or @tags [])}))))
+                             (-> js/document
+                                 (.querySelector taggle-input-sel)
+                                 (.addEventListener "keypress" (fn [e]
+                                                                 (let [key-value (u/key-event-value e)
+                                                                       key-target-value (u/event-target-value e)
+                                                                       new-value (str key-target-value key-value)]
+                                                                   (dispatch-event text-changed-event new-value)))))
+                             (init-awesomplete taggle-input-sel
+                                                awesomplete
+                                                display->item
+                                                nil
+                                                (fn [x]
+                                                  (dispatch-event tag-added-event (second x))
+                                                  ;(log/infof "x is: %s" x)
+                                                  )))})))
