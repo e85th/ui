@@ -20,8 +20,8 @@
 (def input-html "templates/e85th/ui/rf/inputs.html")
 
 (defn dispatch-event
-  [rf-event event-value]
-  (rf/dispatch (conj (u/as-vector rf-event) event-value)))
+  [rf-event event-value & args]
+  (rf/dispatch (into (u/as-vector rf-event) (cons event-value args))))
 
 (defn new-on-change-handler
   [rf-event event-reader-fn]
@@ -445,17 +445,23 @@
                                                          (clj->js (merge opts {:tags (or @tags [])})))))}))))
 
 (defn init-awesomplete
-  [dom-selector awesomplete-atom display->item-atom selection-event on-select-fn]
-  (reset! awesomplete-atom (js/Awesomplete. (.querySelector js/document dom-selector) #js {:minChars 1}))
-  (.on (js/$ dom-selector) "awesomplete-selectcomplete" (fn [e]
-                                                          (let [selected (u/event-value e)
-                                                                selection (@display->item-atom selected)]
-                                                            (if selection-event
-                                                              (dispatch-event selection-event selection)
-                                                              (on-select-fn selection))))))
+  ([dom-selector awesomplete-atom display->item-atom selection-event on-select-fn]
+   (init-awesomplete dom-selector awesomplete-atom display->item-atom selection-event on-select-fn (constantly nil)))
+  ([dom-selector awesomplete-atom display->item-atom selection-event on-select-fn post-select-fn]
+   (reset! awesomplete-atom (js/Awesomplete. (.querySelector js/document dom-selector) #js {:minChars 1}))
+   (.on (js/$ dom-selector) "awesomplete-selectcomplete" (fn [e]
+                                                           (let [selected (u/event-value e)
+                                                                 selection (@display->item-atom selected)]
+                                                             (if selection-event
+                                                               (dispatch-event selection-event selection)
+                                                               (on-select-fn selection))
+                                                             (post-select-fn))))))
 (defn awesomplete
-  "format-fn should produce unique values for inputs"
-  [suggestions-sub text-changed-event selection-event format-fn]
+  "opts can have keys :format-fn a one arity function to format the suggestions.
+   It can have a placeholder as well."
+  [suggestions-sub text-changed-event selection-event {:keys [format-fn placeholder clear-input-on-select?] :or {format-fn identity
+                                                                                                                 placeholder "Search.."
+                                                                                                                 clear-input-on-select? false}}]
   (let [dom-id (str (gensym "awesomplete-"))
         dom-sel (str "#" dom-id)
         awesomplete (atom nil)
@@ -478,16 +484,15 @@
                             (set! (.-list @awesomplete) (clj->js (keys @display->item)))))
                         [:input {:id dom-id
                                  :value @display-ratom
+                                 :placeholder placeholder
                                  :on-change on-change-fn}])
       :component-did-mount (fn []
-                             (init-awesomplete dom-sel awesomplete display->item selection-event nil))})))
-
-(defn init-taggle
-  [taggle-input-sel text-changed-event]
-  (let []
-    ))
+                             (init-awesomplete dom-sel awesomplete display->item selection-event nil (fn []
+                                                                                                       (when clear-input-on-select?
+                                                                                                         (reset! display-ratom "")))))})))
 
 (defn tag-editor-suggester
+  "NB. tag-added-event fires twice when suggestion is made. Will have to fix. "
   [tags-sub suggestions-sub text-changed-event tag-added-event tag-removed-event format-fn]
   (let [element-id (str (gensym "tag-editor-"))
         awesomplete (atom nil)
@@ -497,7 +502,7 @@
         taggle (atom nil)
         tags (rf/subscribe (u/as-vector tags-sub))
         opts {:onTagAdd (fn [e tag]
-                          (dispatch-event tag-added-event tag))
+                          (dispatch-event tag-added-event tag {:suggestion? false}))
               :onTagRemove (fn [event tag]
                              (dispatch-event tag-removed-event tag))}]
 
@@ -505,7 +510,7 @@
      {:display-name "tag-editor"
       :reagent-render (fn [_ _ _ _ _ _]
                         (let [suggested-items @suggestions]
-                          (log/infof "suggested-items: %s, display->item: %s" suggested-items @display->item)
+                          ;(log/infof "suggested-items: %s, display->item: %s" suggested-items @display->item)
                           ;(log/infof "awesomplete is: %s" @awesomplete)
                           (when (and @awesomplete suggested-items)
                             (reset! display->item (reduce (fn [ans x]
@@ -515,11 +520,14 @@
                             (log/infof "display-item keys: %s" (keys @display->item))
                             (set! (.-list @awesomplete) (clj->js (or (keys @display->item)
                                                                      []))))
+
+                          ;(log/infof "tags: %s" @tags)
                           (when @taggle
-                            (.setOptions @taggle (clj->js (merge opts {:tags (or @tags [])}))))
+                            ;; NB. tried doing setOptions but that doesn't seem to update the tags in the view.
+                            (.add @taggle (clj->js (or @tags []))))
                           [:div {:id element-id :class "tag-container"}]))
       :component-did-mount (fn []
-                             (reset! taggle (js/Taggle. element-id (clj->js (merge opts {:tags (or @tags [])}))))
+                             (reset! taggle (js/Taggle. element-id (clj->js (assoc opts :tags (or @tags [])))))
                              (-> js/document
                                  (.querySelector taggle-input-sel)
                                  (.addEventListener "keypress" (fn [e]
@@ -532,6 +540,4 @@
                                                 display->item
                                                 nil
                                                 (fn [x]
-                                                  (dispatch-event tag-added-event (second x))
-                                                  ;(log/infof "x is: %s" x)
-                                                  )))})))
+                                                  (dispatch-event tag-added-event x {:suggestion? true}))))})))
