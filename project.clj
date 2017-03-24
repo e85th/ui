@@ -1,15 +1,16 @@
-(defproject e85th/ui "0.1.15"
+(defproject e85th/ui "0.1.16"
   :description "Frontend UI code."
   :url "https://github.com/e85th/ui"
   :license {:name "Apache License 2.0"
             :url "http://www.apache.org/licenses/LICENSE-2.0"}
-  :dependencies [[org.clojure/clojure "1.8.0"]
-                 [org.clojure/clojurescript "1.9.229"]
+  :dependencies [[org.clojure/clojure "1.8.0" :scope "provided"]
+                 [org.clojure/clojurescript "1.9.229" :scope "provided"]
                  [re-frame "0.8.0"]
                  [com.taoensso/sente "1.11.0"] ; websockets
                  [prismatic/schema "1.1.2"]
                  [funcool/hodgepodge "0.1.4"] ;; local storage
                  [com.andrewmcveigh/cljs-time "0.4.0"]
+                 [hipo "0.5.2"] ;; hiccup -> dom modifiable item (for working with other js libs)
                  ;; for development
                  [devcards "0.2.1-7"]
                  [cljs-ajax "0.5.8"]

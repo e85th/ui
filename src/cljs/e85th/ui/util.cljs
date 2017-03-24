@@ -49,6 +49,22 @@
   [e]
   (-> e .-target .-checked))
 
+(defn event-target-add-class
+  [css-class e]
+  (some-> e .-target .-classList (.add css-class)))
+
+(defn event-target-rm-class
+  [css-class e]
+  (some-> e .-target .-classList (.remove css-class)))
+
+(defn event-prevent-default
+  [e]
+  (.preventDefault e))
+
+(defn event-stop-propogation
+  [e]
+  (.stopPropogation e))
+
 (defn key-event-code
   [e]
   (.-keyCode e))
