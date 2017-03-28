@@ -34,20 +34,77 @@
        :component-will-unmount (fn []
                                  (on-unmount-fn pb))}))))
 
-
-
-(defn add-endpoint
-  [pb div opts]
-  )
-
-
 (defn draggable
   [pb dom-id-or-el]
   (.draggable pb dom-id-or-el #js {:containment :parent}))
-
 
 (defn connect
   "Use the jsPlumb instance pb to connect the two divs
    with ids src-id and target-id."
   [pb src-id target-id]
   (.connect pb #js {:source src-id :target target-id}))
+
+(defn make-source
+  [pb dom-id opts]
+  (let [el (u/element-by-id dom-id)
+        opts (clj->js opts)]
+    (.makeSource pb el opts)))
+
+(defn make-target
+  [pb dom-id opts]
+  (let [el (u/element-by-id dom-id)
+        opts (clj->js opts)]
+    (.makeTarget pb el opts)))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Connections
+(defn connections
+  [pb]
+  (map (fn [c]
+         {:src (-> c .-sourceId) :tgt (-> c .-targetId)})
+       (.getAllConnections pb)))
+
+(defn inbound-connections
+  [pb dom-id]
+  (-> pb (.getConnections (clj->js {:target dom-id}))))
+
+(defn outbound-connections
+  [pb dom-id]
+  (-> pb (.getConnections (clj->js {:source dom-id}))))
+
+(defn detach-connection
+  [pb cn]
+  (.detach pb cn))
+
+(defn rm-inbound-connections
+  [pb dom-id]
+  (doseq [cn (inbound-connections pb dom-id)]
+    (detach-connection pb cn)))
+
+(defn detach-endpoint-connections
+  [pb dom-id]
+  (.detachAllConnections pb dom-id))
+
+
+(defn rm-endpoint
+  [pb dom-id]
+  (detach-endpoint-connections pb dom-id)
+  (.deleteEndpoint pb dom-id))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Events
+(defn- register-event-handler
+  [pb event cb]
+  (.on pb event cb))
+
+(defn register-connection-click-handler
+  [pb cb]
+  "Register connection click listener. The callback function receives the connection."
+  (register-event-handler pb "click" cb))
+
+(defn register-connection-created-handler
+  "Register connection created listener. Callback function
+   receives the connection info and the original event."
+  [pb cb]
+  (register-event-handler pb "connection" cb))

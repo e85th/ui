@@ -122,6 +122,10 @@
   [id]
   (js/document.getElementById id))
 
+(defn rm-element-by-id
+  [id]
+  (-> id element-by-id .remove))
+
 (defn element-exists?
   [id]
   (some? (element-by-id id)))
