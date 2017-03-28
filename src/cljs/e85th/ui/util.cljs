@@ -65,6 +65,15 @@
   [e]
   (.stopPropogation e))
 
+(defn bounding-rect
+  [e]
+  (let [r (.getBoundingClientRect e)]
+    {:bottom (.-bottom r)
+     :height (.-height r)
+     :left (.-left r)
+     :top (.-top r)
+     :width (.-width r)}))
+
 (defn key-event-code
   [e]
   (.-keyCode e))

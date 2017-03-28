@@ -14,8 +14,6 @@
   ([pb]
    (.getContainer pb))
   ([pb div-id]
-   (log/infof "setting container to be %s" div-id)
-   (log/infof "container is %s" (u/element-by-id  div-id))
    (.setContainer pb (u/element-by-id  div-id))))
 
 (defn control
@@ -92,11 +90,16 @@
   (detach-endpoint-connections pb dom-id)
   (.deleteEndpoint pb dom-id))
 
+(defn rm
+  [pb dom-id]
+  (.remove pb dom-id))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Events
 (defn- register-event-handler
   [pb event cb]
-  (.on pb event cb))
+  ;; fyi: bind works but .on does not
+  (.bind pb event cb))
 
 (defn register-connection-click-handler
   [pb cb]
@@ -108,3 +111,10 @@
    receives the connection info and the original event."
   [pb cb]
   (register-event-handler pb "connection" cb))
+
+
+(defn connection-as-map
+  "Returns source and target dom ids as a map."
+  [cn]
+  {:source-id (.-sourceId cn)
+   :target-id (.-targetId cn)})
