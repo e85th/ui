@@ -2,6 +2,7 @@
   "NB. Using vanilla JS is better instead of the jQuery one."
   (:require [reagent.core :as reagent]
             [e85th.ui.util :as u]
+            [e85th.ui.dom :as dom]
             [taoensso.timbre :as log]))
 
 (defn new-instance
@@ -14,7 +15,7 @@
   ([pb]
    (.getContainer pb))
   ([pb div-id]
-   (.setContainer pb (u/element-by-id  div-id))))
+   (.setContainer pb (dom/element-by-id  div-id))))
 
 (defn control
   ([div-opts init-data on-mount-fn]
@@ -44,13 +45,13 @@
 
 (defn make-source
   [pb dom-id opts]
-  (let [el (u/element-by-id dom-id)
+  (let [el (dom/element-by-id dom-id)
         opts (clj->js opts)]
     (.makeSource pb el opts)))
 
 (defn make-target
   [pb dom-id opts]
-  (let [el (u/element-by-id dom-id)
+  (let [el (dom/element-by-id dom-id)
         opts (clj->js opts)]
     (.makeTarget pb el opts)))
 

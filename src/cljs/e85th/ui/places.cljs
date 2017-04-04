@@ -1,8 +1,9 @@
 (ns e85th.ui.places
   "Google places functionality."
   (:require [schema.core :as s]
-            [clojure.string :as string]
+            [clojure.string :as str]
             [taoensso.timbre :as log]
+            [e85th.ui.dom :as dom]
             [e85th.ui.util :as u]))
 
 (s/defn compose-address
@@ -10,7 +11,7 @@
    a ', ' separated string."
   [street city state zip]
   (->> [street city state zip]
-       (remove string/blank?)
+       (remove str/blank?)
        (interpose ", " )
        (apply str)))
 
@@ -27,7 +28,7 @@
      (new-autocomplete element-id config)))
   ([element-id :- s/Str config]
    (let [config (clj->js config)]
-     (new google.maps.places.Autocomplete (u/element-by-id element-id) config))))
+     (new google.maps.places.Autocomplete (dom/element-by-id element-id) config))))
 
 (s/defn add-autocomplete-listener
   "autocomplete is the google.maps.place.Autocomplete instance and callback-fn is the no arg callback function."

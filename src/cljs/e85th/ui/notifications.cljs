@@ -1,5 +1,6 @@
 (ns e85th.ui.notifications
   (:require [taoensso.timbre :as log]
+            [e85th.ui.browser :as browser]
             [e85th.ui.util :as u]))
 
 
@@ -42,7 +43,7 @@
 (defn desktop
   "Shows a desktop notification, potentially falling back to a toastr."
   [title message]
-  (if (u/notifications-available?)
+  (if (browser/notifications-available?)
     (condp = (permission)
       "default" (do
                   (js/window.Notification.requestPermission)

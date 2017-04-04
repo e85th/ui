@@ -1,13 +1,14 @@
 (ns e85th.ui.rf.multi-select
   (:require [re-frame.core :as rf]
             [taoensso.timbre :as log]
+            [e85th.ui.dom :as dom]
             [e85th.ui.util :as u]
             [devcards.core :as d :refer-macros [defcard-rg]]
             [kioo.reagent :as k :refer-macros [defsnippet]]))
 
 (defn selected-values
   [dom-id rf-event]
-  (rf/dispatch (conj (u/as-vector rf-event) (u/selected-option-values dom-id))))
+  (rf/dispatch (conj (u/as-vector rf-event) (dom/selected-option-values dom-id))))
 
 (defsnippet option "templates/e85th/ui/rf/multi-select.html" [:.available :select [:option first-child]]
   [{:keys [id name]}]
@@ -20,8 +21,8 @@
   {[:.available :select] (k/do->
                           (k/set-attr :id avail-dom-id)
                           (k/content (map option available-opts)))
-   [:.select-btn] (k/listen :on-click #(selection-cb (u/selected-option-values avail-dom-id)))
-   [:.deselect-btn] (k/listen :on-click #(deselection-cb (u/selected-option-values sel-dom-id)))
+   [:.select-btn] (k/listen :on-click #(selection-cb (dom/selected-option-values avail-dom-id)))
+   [:.deselect-btn] (k/listen :on-click #(deselection-cb (dom/selected-option-values sel-dom-id)))
    [:.available-title] (k/content (:available-title opts))
    [:.selected-title] (k/content (:selected-title opts))
    [:.selected :select] (k/do->

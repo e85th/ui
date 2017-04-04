@@ -2,6 +2,7 @@
   (:require [hodgepodge.core :as hp]
             [re-frame.core :as rf]
             [e85th.ui.notifications :as notify]
+            [e85th.ui.browser :as browser]
             [e85th.ui.util :as u]))
 
 (rf/reg-fx
@@ -19,10 +20,7 @@
  (fn [cofx xs]
    (assoc cofx :local-storage (select-keys hp/local-storage (u/as-vector xs)))))
 
-(rf/reg-fx
- :nav
- (fn [url]
-   (u/set-window-location! url)))
+(rf/reg-fx :nav browser/location)
 
 (def kind->fn
   {:alert notify/alert

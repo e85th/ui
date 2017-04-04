@@ -9,6 +9,7 @@
             [e85th.ui.places :as places]
             [e85th.ui.rf.multi-select :as ms]
             [e85th.ui.rf.paginator :as paginator]
+            [e85th.ui.dom :as dom]
             [e85th.ui.util :as u]
             [goog.events :as events])
   (:import [goog.i18n DateTimeFormat DateTimeParse]
@@ -79,7 +80,7 @@
                          @error)]
         [view
          (assoc attrs-map :value (or @text ""))
-         (assoc events-map :on-change (new-on-change-handler event u/event-value))
+         (assoc events-map :on-change (new-on-change-handler event dom/event-value))
          text-error]))))
 
 (defn new-text-input
@@ -129,7 +130,7 @@
       ;; @checked? should be a boolean
       [view
        (assoc attrs-map :checked @checked?)
-       (assoc events-map :on-change (new-on-change-handler event u/event-checked))
+       (assoc events-map :on-change (new-on-change-handler event dom/event-checked))
        label])))
 
 
@@ -200,14 +201,14 @@
   ([selected-sub event options-sub]
    (select selected-sub event options-sub "Select"))
   ([selected-sub event options-sub select-description]
-   [rf-select :select selected-sub options-sub {} {:on-change #(rf/dispatch (conj (u/as-vector event) (u/event-value %)))} select-description]))
+   [rf-select :select selected-sub options-sub {} {:on-change #(rf/dispatch (conj (u/as-vector event) (dom/event-value %)))} select-description]))
 
 ;;--- Google Places / Address Suggest
 (defsnippet places-autocomplete* "templates/e85th/ui/rf/inputs.html" [:div.places-autocomplete]
   [element-id display-address-ratom]
   {[:input] (k/do->
              (k/set-attr :id element-id :value @display-address-ratom)
-             (k/listen :on-change #(reset! display-address-ratom (u/event-value %))))})
+             (k/listen :on-change #(reset! display-address-ratom (dom/event-value %))))})
 
 (defn places-autocomplete-cb
   ""
@@ -278,7 +279,7 @@
       :reagent-render (fn [url headers display-value-ratom on-select]
                         [:input {:id dom-id
                                  :value @display-value-ratom
-                                 :on-change #(reset! display-value-ratom (u/event-value %))}])
+                                 :on-change #(reset! display-value-ratom (dom/event-value %))}])
       :component-did-mount (fn []
                              (let [element (goog.dom.getElement dom-id)]
                                (reset! auto-complete (Remote. url element))
@@ -293,128 +294,6 @@
   (let [display-value (rf/subscribe (u/as-vector sub))]
     (fn [url headers sub event]
       [autocomplete-cb url headers (reagent/atom @display-value) #(dispatch-event event %)])))
-
-
-;;--  Typeahead Autocomplete
-(s/defn new-bloodhound
-  "New Bloodhound tied to an input text field.
-   prepare-request-fn takes the query and the settings object and returns a settings object."
-  ([remote-url :- s/Str wildcard :- s/Str]
-   (new-bloodhound remote-url wildcard (fn [search settings] settings)))
-  ([remote-url :- s/Str wildcard :- s/Str prepare-request-fn]
-   (let [opts #js {:datumTokenizer (js/Bloodhound.tokenizers.obj.whitespace "value")
-                   :queryTokenizer js/Bloodhound.tokenizers.whitespace
-                   :remote #js {:url remote-url
-                                :wildcard wildcard
-                                :prepare prepare-request-fn}}]
-     (js/Bloodhound. opts))))
-
-(s/defn init-typeahead!
-  "dom id is string that identifies the element that typeahead should hook up to.
-   typeahead-options is a map. dataset is a Bloodhound instance.
-   suggestion-selected-fn is two arg fn taking an event and the selection,
-   called when a selection is chosen."
-  [dom-selector typeahead-options dataset suggestion-selected-fn]
-  ;(log/infof "init-typeahead with dom-selector: %s" dom-selector)
-  (doto (js/$ dom-selector)
-    (.typeahead (clj->js typeahead-options) dataset)
-    (.bind "typeahead:select" suggestion-selected-fn)))
-
-(defsnippet typeahead* "templates/e85th/ui/rf/inputs.html" [:.search-control]
-  [attrs-map events-map]
-  {[:.search-control] (set-attrs-and-events attrs-map events-map)})
-
-
-(defn typeahead-cb
-  "typeahead-opts, dataset-opts should be passed in as JS objects not clj maps."
-  ([view attrs-map display-value typeahead-opts dataset-opts on-item-selected on-blur]
-   (let [dom-id (str (gensym "typeahead-"))
-         dom-sel (str "#" dom-id)
-         attrs-map (merge {:id dom-id :placeholder "Search"} attrs-map)
-         ;set-display (fn [s] (-> dom-sel js/$ (.typeahead "val" s))) ;; this will set the value and trigger a search
-         set-display (fn [s] (-> dom-sel js/$ (.data "ttTypeahead") .-input (.setQuery s true))) ;; this sets the value w/o triggering a search
-         inited? (atom false)]
-     (reagent/create-class
-      {:display-name "typeahead"
-       :reagent-render (fn [_ _ display-value _ _ _ _]
-                         (when @inited?
-                           (set-display display-value))
-                         [view attrs-map {:on-blur on-blur}])
-       :component-did-mount (fn []
-                              ;(log/infof "typeahead component mounted")
-                              (let [cb (fn [obj datum dataset-name]
-                                         (on-item-selected (js->clj datum :keywordize-keys true)))]
-                                (init-typeahead! dom-sel typeahead-opts dataset-opts cb)
-                                (reset! inited? true)
-                                ;; set display after the component is created
-                                ;; first time in reagent-render is the inital dom and it does not exist yet
-                                (set-display display-value)))}))))
-
-(defn typeahead
-  ([selection-event attrs-map typeahead-opts dataset-opts]
-   (typeahead nil selection-event attrs-map typeahead-opts dataset-opts))
-  ([text-sub selection-event attrs-map typeahead-opts dataset-opts]
-   (typeahead text-sub selection-event nil attrs-map typeahead-opts dataset-opts ))
-
-  ([text-sub selection-event blur-event attrs-map typeahead-opts dataset-opts]
-   (typeahead typeahead* text-sub selection-event blur-event attrs-map typeahead-opts dataset-opts))
-
-  ([view text-sub selection-event blur-event attrs-map typeahead-opts dataset-opts]
-
-   ;(log/infof "text-sub: %s, sel-ev: %s, blur: %s, attrs: %s, type: %s data: %s"  text-sub selection-event blur-event attrs-map typeahead-opts dataset-opts)
-
-   (let [text (or (some-> text-sub u/as-vector rf/subscribe) (atom ""))]
-     (fn [_ _ _ _ _ _ _]
-       [typeahead-cb view attrs-map (or @text "") typeahead-opts dataset-opts
-        #(dispatch-event selection-event %)
-        #(some-> blur-event (dispatch-event (u/event-value %)))]))))
-
-(comment
-  (defn new-search-typeahead
-    []
-    (let [remote-url (str (data/api-host) "/v1/search")
-          wildcard "%QUERY"
-          prep-fn (fn [search settings]
-                    ;; jquery xhr settings that bloodhound works with
-                    (clj->js {:url remote-url
-                              :data {:q search}
-                              :type "GET"
-                              :dataType "json"}))
-          bloodhound (inputs/new-bloodhound remote-url wildcard prep-fn)
-          bloodhound-with-defaults (fn [q sync async]
-                                     (if (string/blank? q)
-                                       (sync (clj->js [{:name "Restaurants"}
-                                                       {:name "Bars"}
-                                                       {:name "Coffee"}]))
-                                       (.search bloodhound q sync async)))
-          dataset #js {:name "search-dataset"
-                       :display "name" ; display the name property from the returned response
-                       :source bloodhound-with-defaults}
-          typeahead-opts {:minLength 0 ;; required to get defaults to show
-                          :highlight true}]
-      [inputs/typeahead {:placeholder "Search"} typeahead-opts dataset ::item-selected]))
-
-
-  ;; JSON post example
-  (defn new-users-typeahead
-    []
-    (let [remote-url (str (data/api-host) "/v1/search/users")
-          wildcard "%QUERY"
-          prep-fn (fn [search settings]
-                    (log/infof "prep-fn called")
-                    ;; jquery xhr settings that bloodhound works with
-                    (clj->js (-> {:url remote-url
-                                  :contentType "application/json"
-                                  :data (js/JSON.stringify (clj->js {:q search :role-ids [2 3]}))
-                                  :type "POST"
-                                  :dataType "json"}
-                                 (rpc/with-bearer-auth "eydkj893ja8jdkdj8ajdf"))))
-          bloodhound (inputs/new-bloodhound remote-url wildcard prep-fn)
-          users-dataset #js {:name "users-dataset" :display "name" :source bloodhound}
-          typeahead-opts {:minLength 1 :highlight true}]
-      (log/infof "remote url: %s" remote-url)
-      [inputs/typeahead {:placeholder "User Search"} typeahead-opts users-dataset e/current-user-selected]))
-  )
 
 
 (def multi-select ms/multi-select)
@@ -450,7 +329,7 @@
   ([dom-selector awesomplete-atom display->item-atom selection-event on-select-fn post-select-fn]
    (reset! awesomplete-atom (js/Awesomplete. (.querySelector js/document dom-selector) #js {:minChars 1}))
    (.on (js/$ dom-selector) "awesomplete-selectcomplete" (fn [e]
-                                                           (let [selected (u/event-value e)
+                                                           (let [selected (dom/event-value e)
                                                                  selection (@display->item-atom selected)]
                                                              (if selection-event
                                                                (dispatch-event selection-event selection)
@@ -469,7 +348,7 @@
         display->item (atom {})
         display-ratom (reagent/atom "")
         on-change-fn (fn [e]
-                       (let [text (u/event-value e)]
+                       (let [text (dom/event-value e)]
                          (reset! display-ratom text)
                          (dispatch-event text-changed-event text)))]
     (reagent/create-class
@@ -531,8 +410,8 @@
                              (-> js/document
                                  (.querySelector taggle-input-sel)
                                  (.addEventListener "keypress" (fn [e]
-                                                                 (let [key-value (u/key-event-value e)
-                                                                       key-target-value (u/event-target-value e)
+                                                                 (let [key-value (dom/key-event-value e)
+                                                                       key-target-value (dom/event-target-value e)
                                                                        new-value (str key-target-value key-value)]
                                                                    (dispatch-event text-changed-event new-value)))))
                              (init-awesomplete taggle-input-sel

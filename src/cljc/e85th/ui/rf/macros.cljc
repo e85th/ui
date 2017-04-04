@@ -1,19 +1,20 @@
-(ns e85th.ui.rf.sweet)
+(ns e85th.ui.rf.macros)
 
 (defn keyword-var
   [var-name]
   `(def ~var-name ~(keyword (str *ns*) (str var-name))))
 
 ;; nb db# and _# because can't use qualified name as a parameter (syntax quote qualifies everything)
-(defmacro def-sub
+(defmacro defsub-db
   [sub-name args & body]
-  (assert (vector? args) "def-sub args must be a vector.")
+  (assert (vector? args) "defsub args must be a vector.")
   `(do
      ~(keyword-var sub-name)
      (re-frame.core/reg-sub ~sub-name
                             (fn ~args
                               (do ~@body)))))
-(defmacro def-sub-db
+
+(defmacro defsub
   [sub-name db-path]
   `(do
      ~(keyword-var sub-name)
@@ -21,30 +22,31 @@
                             (fn [db# _#]
                               (get-in db# ~db-path)))))
 
-(defmacro def-event-fx
+(defmacro defevent-fx
   "Define the event name as a keyword var and then register the function."
   [event-name args & body]
-  (assert (vector? args) "def-event-fx args must be a vector.")
+  (assert (vector? args) "defevent-fx args must be a vector.")
   `(do
      ~(keyword-var event-name)
      (re-frame.core/reg-event-fx ~event-name
                                  (fn ~args
                                    (do ~@body)))))
-(defmacro def-event-db
+
+(defmacro defevent-db
   [event-name args & body]
-  (assert (vector? args) "def-event-db args must be a vector.")
+  (assert (vector? args) "defevent-db args must be a vector.")
   `(do
      ~(keyword-var event-name)
      (re-frame.core/reg-event-db ~event-name
                                  (fn ~args
                                    (do ~@body)))))
 
-(defmacro def-db-change
+(defmacro defevent
   "Registers an event handler for the event-name.  Associates the event
    value into the db-path, then calls the post-change-fn which can be used to run
    validation. post-change-fn gets the db and the event vector."
   ([event-name db-path]
-   `(def-db-change ~event-name ~db-path (fn [db# v#] db#)))
+   `(defevent ~event-name ~db-path (fn [db# v#] db#)))
   ([event-name db-path post-change-fn]
    `(do
       ~(keyword-var event-name)
