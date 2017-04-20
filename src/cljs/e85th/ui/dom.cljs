@@ -54,6 +54,12 @@
   [id]
   (js/document.getElementById id))
 
+(defn element-style-css-text
+  "Returns the css text as a string."
+  [id]
+  (or (some-> id element-by-id .-style .-cssText)
+      ""))
+
 (defn rm-element-by-id
   [id]
   (-> id element-by-id .remove))

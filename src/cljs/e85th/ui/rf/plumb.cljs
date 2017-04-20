@@ -1,5 +1,6 @@
 (ns e85th.ui.rf.plumb
   "NB. Using vanilla JS is better instead of the jQuery one."
+  (:refer-clojure :exclude [empty])
   (:require [reagent.core :as reagent]
             [e85th.ui.util :as u]
             [e85th.ui.dom :as dom]
@@ -119,3 +120,20 @@
   [cn]
   {:source-id (.-sourceId cn)
    :target-id (.-targetId cn)})
+
+(defn suspend-drawing
+  ([pb suspended?]
+   (.setSuspendDrawing pb suspended?))
+  ([pb suspended? repaint?]
+   (.setSuspendDrawing pb suspended? repaint?)))
+
+(defn batch
+  "f is a no arg fn called to manipulate the ui without repainting every step."
+  [pb f]
+  (.batch pb f))
+
+
+(defn empty
+  "Clears out everything within the container."
+  [pb]
+  (.empty pb (container pb)))
