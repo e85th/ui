@@ -2,6 +2,7 @@
   (:require [ajax.core :as ajax]
             [ajax.edn :as ajax-edn]
             [e85th.ui.transit-io :as transit-io]
+            [e85th.ui.edn-io] ; registers the readers
             [e85th.ui.util :as u]))
 
 (def ^:private method-name->method
