@@ -324,10 +324,11 @@
                                                          (clj->js (merge opts {:tags (or @tags [])})))))}))))
 
 (defn init-awesomplete
-  ([dom-selector awesomplete-atom display->item-atom selection-event on-select-fn]
-   (init-awesomplete dom-selector awesomplete-atom display->item-atom selection-event on-select-fn (constantly nil)))
-  ([dom-selector awesomplete-atom display->item-atom selection-event on-select-fn post-select-fn]
-   (reset! awesomplete-atom (js/Awesomplete. (.querySelector js/document dom-selector) #js {:minChars 1}))
+  ([dom-selector filter-fn awesomplete-atom display->item-atom selection-event on-select-fn]
+   (init-awesomplete filter-fn dom-selector awesomplete-atom display->item-atom selection-event on-select-fn (constantly nil)))
+  ([dom-selector filter-fn awesomplete-atom display->item-atom selection-event on-select-fn post-select-fn]
+   (reset! awesomplete-atom (js/Awesomplete. (.querySelector js/document dom-selector) #js {:minChars 1
+                                                                                            :filter filter-fn}))
    (.on (js/$ dom-selector) "awesomplete-selectcomplete" (fn [e]
                                                            (let [selected (dom/event-value e)
                                                                  selection (@display->item-atom selected)]
@@ -338,9 +339,10 @@
 (defn awesomplete
   "opts can have keys :format-fn a one arity function to format the suggestions.
    It can have a placeholder as well."
-  [suggestions-sub text-changed-event selection-event {:keys [format-fn placeholder clear-input-on-select?] :or {format-fn identity
-                                                                                                                 placeholder "Search.."
-                                                                                                                 clear-input-on-select? false}}]
+  [suggestions-sub text-changed-event selection-event {:keys [format-fn filter-fn placeholder clear-input-on-select?] :or {format-fn identity
+                                                                                                                           filter-fn (fn [text input] true)
+                                                                                                                           placeholder "Search.."
+                                                                                                                           clear-input-on-select? false}}]
   (let [dom-id (str (gensym "awesomplete-"))
         dom-sel (str "#" dom-id)
         awesomplete (atom nil)
@@ -366,9 +368,9 @@
                                  :placeholder placeholder
                                  :on-change on-change-fn}])
       :component-did-mount (fn []
-                             (init-awesomplete dom-sel awesomplete display->item selection-event nil (fn []
-                                                                                                       (when clear-input-on-select?
-                                                                                                         (reset! display-ratom "")))))})))
+                             (init-awesomplete dom-sel filter-fn awesomplete display->item selection-event nil (fn []
+                                                                                                                 (when clear-input-on-select?
+                                                                                                                   (reset! display-ratom "")))))})))
 
 (defn tag-editor-suggester
   "NB. tag-added-event fires twice when suggestion is made. Will have to fix. "
@@ -415,6 +417,7 @@
                                                                        new-value (str key-target-value key-value)]
                                                                    (dispatch-event text-changed-event new-value)))))
                              (init-awesomplete taggle-input-sel
+                                               (constantly true)
                                                 awesomplete
                                                 display->item
                                                 nil
