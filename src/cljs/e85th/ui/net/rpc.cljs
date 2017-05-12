@@ -44,7 +44,7 @@
 (defn with-transit-format
   "Merges in directives to indicate a json request/response and keywords."
   [request]
-  (merge {:format (ajax/transit-request-format)
+  (merge {:format (ajax/transit-request-format {:writer transit-io/writer})
           :response-format (ajax/transit-response-format {:raw false :reader transit-io/reader})}
          request))
 

@@ -10,6 +10,8 @@
             [e85th.ui.rf.multi-select :as ms]
             [e85th.ui.rf.paginator :as paginator]
             [e85th.ui.dom :as dom]
+            [e85th.ui.time :as time]
+            [e85th.ui.moment :as moment]
             [e85th.ui.util :as u]
             [goog.events :as events])
   (:import [goog.i18n DateTimeFormat DateTimeParse]
@@ -261,6 +263,7 @@
                                  (some-> @date-picker .dispose)
                                  (reset! date-picker nil))}))))
 (defn date-picker
+  "Note that the datepicker dispatches a goog.date.Date instance."
   ([sub event]
    [date-picker sub event "Date"])
   ([sub event placeholder]
@@ -268,32 +271,114 @@
      (fn [sub event placeholder]
        [date-picker-cb placeholder @date-value #(dispatch-event event %)]))))
 
-;;-- Google Closure Autocomplete
-(s/defn autocomplete-cb
-  "headers is a map of str->str"
-  [url headers display-value-ratom on-select]
-  (let [dom-id (str (gensym "auto-complete-"))
-        auto-complete (atom nil)]
-    (reagent/create-class
-     {:display-name "auto-complete"
-      :reagent-render (fn [url headers display-value-ratom on-select]
-                        [:input {:id dom-id
-                                 :value @display-value-ratom
-                                 :on-change #(reset! display-value-ratom (dom/event-value %))}])
-      :component-did-mount (fn []
-                             (let [element (goog.dom.getElement dom-id)]
-                               (reset! auto-complete (Remote. url element))
-                               (-> @auto-complete (.setHeaders (clj->js headers)))
-                               (events/listen @auto-complete goog.ui.ac.AutoComplete.EventType.SELECT #(log/infof "autocomplete selecte event"))))
-      :component-will-unmount (fn []
-                                (some-> @auto-complete .dispose)
-                                (reset! auto-complete nil))})))
+(defn moment-date-picker
+  "Similar to datepicker but converts to from moment."
+  ([sub event]
+   [moment-date-picker sub event "Date"])
+  ([sub event placeholder]
+   (let [dt-or-m (rf/subscribe (u/as-vector sub))]
+     (fn [sub event placeholder]
+       (let [date-value (some-> @dt-or-m moment/coerce moment/goog-date)]
+         [date-picker-cb placeholder date-value #(dispatch-event event (moment/coerce %))])))))
 
-(defn autocomplete
-  [url headers sub event]
-  (let [display-value (rf/subscribe (u/as-vector sub))]
-    (fn [url headers sub event]
-      [autocomplete-cb url headers (reagent/atom @display-value) #(dispatch-event event %)])))
+(defn time-picker-cb
+  "The on-time-selected is invoked with a tuple [hr min time]
+   hr is an integer from 0-23 and min is an integer from 0-59, time is an integer representing hr + time ie hr = 16, min = 30
+   then time is 1630 as an int. The input selected-time is an integer."
+  ([time-value on-change]
+   [time-picker-cb time-value on-change {:placeholder "Time"}])
+  ([time-value on-change props]
+   (let [div-id (str (gensym "time-picker-"))
+         $tp #(js/$ (str "#" div-id))
+         ;; only use the hour and minutes, rest is bogus
+         read-time #(when-let [dt (.timepicker ($tp) "getTime")]
+                      (let [h (.getHours dt)
+                            m (.getMinutes dt)]
+                        [h m (time/hr+min h m)]))
+         time->date (fn [t]
+                      ;(log/infof "control get time: %s" t)
+                      (let [[h m] (time/time->hr+min t)]
+                        (doto (js/Date.)
+                          (.setHours h)
+                          (.setMinutes m))))]
+     (reagent/create-class
+      {:display-name "time-picker"
+       :reagent-render (fn [time-value on-change props]
+                         ;(log/infof "render time-value: %s" time-value)
+                         (some-> ($tp) (.timepicker "setTime" (some-> time-value time->date)))
+                         [:input (assoc props :id div-id :on-blur (comp on-change read-time))])
+       :component-did-mount (fn []
+                              (doto ($tp)
+                                (.timepicker)
+                                (.timepicker "setTime" (some-> time-value time->date))
+                                (.on "timeFormatError" #(on-change nil))
+                                (.on "timeRangeError" #(on-change nil))
+                                (.on "changeTime" (comp on-change read-time))))
+       :component-will-unmount (fn []
+                                 (some-> ($tp) (.timepicker "remove")))}))))
+(defn time-picker
+  ([sub event]
+   [time-picker sub event {:placeholder "Time"}])
+  ([sub event props]
+   (let [time-value (rf/subscribe (u/as-vector sub))]
+     (fn [sub event props]
+       [time-picker-cb @time-value #(dispatch-event event %) props]))))
+
+
+(defn moment-date-time-picker
+  ""
+  ([timezone-sub date-sub event]
+   (let [timezone (rf/subscribe (u/as-vector timezone-sub))
+         dt (rf/subscribe (u/as-vector date-sub))
+         state (atom {})
+         combine-and-dispatch (fn [{:keys [year month date hour minute tz] :as current-state}]
+                                ;(log/infof "current-state: %s " current-state)
+                                (when (and year month date hour minute tz)
+                                  (let [dt-str (moment/str-no-tz year month date hour minute 0 0)
+                                        new-moment (moment/tz dt-str tz)]
+                                    ;(log/infof "dt-str: %s, tz: %s, new-moment: %s" dt-str tz new-moment)
+                                    (when (moment/valid? new-moment)
+                                      (dispatch-event event new-moment)))))
+         state-update-date (fn [goog-date]
+                             (let [[y m d] (some-> goog-date time/deconstruct)
+                                   data {:year y :month m :date d}
+                                   existing-data (select-keys @state [:year :month :date])]
+                               ;(log/infof "state-update-date existing-data: %s data: %s" existing-data data)
+                               (when (not= data existing-data)
+                                 (swap! state merge data))))
+         state-update-time (fn [[hr minute]]
+                             (let [existing-data (select-keys @state [:hour :minute])
+                                   data {:hour hr :minute minute}]
+                               ;(log/infof "state-update-time existing-data: %s data: %s" existing-data data)
+                               (when (not= data existing-data)
+                                 (swap! state merge data))))
+         on-date-changed (fn [goog-date]
+                           (when (state-update-date goog-date)
+                             (combine-and-dispatch @state)))
+         on-time-changed(fn [time-data]
+                          (when (state-update-time time-data)
+                            (combine-and-dispatch @state)))]
+     (fn [timezone-sub date-sub event]
+       (let [m (some-> @dt moment/coerce)
+             tz @timezone
+             m-adj (when (and m tz) (moment/tz m tz))
+             goog-date (some-> m-adj moment/goog-date)
+             hour (some-> m moment/hour)
+             minute (some-> m moment/minute)
+             time-val (when (and hour minute)
+                        (moment/hr+min hour minute))]
+
+         ;(log/infof "hour: %s, minute: %s, time-val: %s" hour minute time-val)
+         (swap! state assoc :tz tz)
+         (some-> goog-date state-update-date)
+         (when time-val
+           (state-update-time [hour minute time-val]))
+
+         [:span
+          [date-picker-cb goog-date on-date-changed]
+          [time-picker-cb time-val on-time-changed]])))))
+
+
 
 
 (def multi-select ms/multi-select)
