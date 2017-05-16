@@ -1,6 +1,9 @@
 (ns e85th.ui.browser
   (:require [goog.net.cookies]
-            [e85th.ui.util :as u]))
+            [e85th.ui.util :as u]
+            [cemerick.url :as url]
+            [taoensso.timbre :as log]
+            [clojure.walk :as walk]))
 
 (defn get-cookie-value
   "Gets the url decoded value of the cookie if it exists or nil."
@@ -35,6 +38,24 @@
   ([url]
    (set! js/window.location url)))
 
+(defn href
+  []
+  (.-href (location)))
+
 (defn origin
   []
   (.-origin (location)))
+
+(defn pathname
+  []
+  (.-pathname (location)))
+
+(defn search
+  []
+  (.-search (location)))
+
+(defn query-params
+  ([]
+   (query-params (href)))
+  ([url]
+   (walk/keywordize-keys (:query (url/url url)))))

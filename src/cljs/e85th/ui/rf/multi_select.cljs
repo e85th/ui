@@ -42,7 +42,7 @@
         avail-dom-id (str (gensym "multi-select-avail-"))
         desel-dom-id (str (gensym "multi-select-selected-"))
         selection-event (u/as-vector selection-event)
-        deslection-event (u/as-vector deselection-event)]
+        deselection-event (u/as-vector deselection-event)]
     (fn [_ _ _ _ _]
       [multi-select* @avail-opts @sel-opts #(rf/dispatch (conj selection-event %)) #(rf/dispatch (conj deselection-event %)) avail-dom-id desel-dom-id opts])))
 
