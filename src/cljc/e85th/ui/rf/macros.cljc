@@ -1,5 +1,9 @@
 (ns e85th.ui.rf.macros)
 
+(defn as-vector
+  [x]
+  (if (vector? x) x [x]))
+
 (defn keyword-var
   [var-name]
   `(def ~var-name ~(keyword (str *ns*) (str var-name))))
@@ -14,13 +18,50 @@
                             (fn ~args
                               (do ~@body)))))
 
+(defn make-subscription
+  [x]
+  (let [x (as-vector x)]
+    `(re-frame.core/subscribe ~x)))
+
+(defn make-simple-derived-sub
+  [sub-name args body]
+  (assert (= 2 (count args)) (str "args must be a 2 element vector got: " (count args)))
+  (let [subs (mapv make-subscription (first args))]
+    `(do
+       ~(keyword-var sub-name)
+       (re-frame.core/reg-sub ~sub-name
+                              (fn [query-v# _#] ~subs)
+                              (fn ~args (do ~@body))))))
+
+(defn make-fn-derived-sub
+  "This singal-fn is a function that takes in a query-vector and something else.
+   It should return a vector of vectors which will be subscribed."
+  [sub-name signal-fn body]
+  (let [args (first body)
+        body (rest body)]
+    (assert (vector? args) "Expected a vector representing function args")
+    (assert (= 2 (count args)) (str "args must be a 2 element vector got: " (count args)))
+    `(do
+       ~(keyword-var sub-name)
+       (re-frame.core/reg-sub ~sub-name
+                              (fn [query-v# x#]
+                                (let [subs# (~signal-fn query-v# x#)]
+                                  (assert (every? vector? subs#) "Signal-fn must return a vector of vectors. Each vector representing a subscription to be made.")
+                                  (mapv re-frame.core/subscribe subs#)))
+                              (fn ~args (do ~@body))))))
+
 (defmacro defsub
-  [sub-name db-path]
-  `(do
-     ~(keyword-var sub-name)
-     (re-frame.core/reg-sub ~sub-name
-                            (fn [db# _#]
-                              (get-in db# ~db-path)))))
+  ([sub-name db-path]
+   `(do
+      ~(keyword-var sub-name)
+      (re-frame.core/reg-sub ~sub-name
+                             (fn [db# _#]
+                               (get-in db# ~db-path)))))
+  ([sub-name signal-fn-or-args & body]
+   (let [f (if (vector? signal-fn-or-args)
+             make-simple-derived-sub
+             make-fn-derived-sub)]
+     (f sub-name signal-fn-or-args body))))
 
 (defmacro defevent-fx
   "Define the event name as a keyword var and then register the function."
@@ -55,3 +96,11 @@
                                     (let [event-value# (last v#)]
                                       (-> (assoc-in db# ~db-path event-value#)
                                           (~post-change-fn v#))))))))
+
+(comment
+  (macroexpand-1 `(defsub blah
+                    [[a b] _]
+                    (let [x 1]
+                      "ok")))
+
+  )

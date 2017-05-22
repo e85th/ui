@@ -1,4 +1,4 @@
-(defproject e85th/ui "0.1.22"
+(defproject e85th/ui "0.1.23"
   :description "Frontend UI code."
   :url "https://github.com/e85th/ui"
   :license {:name "Apache License 2.0"
@@ -6,6 +6,7 @@
   :dependencies [[org.clojure/clojure "1.8.0" :scope "provided"]
                  [org.clojure/clojurescript "1.9.229" :scope "provided"]
                  [re-frame "0.8.0"]
+                 [com.cemerick/url "0.1.1"]
                  [com.taoensso/sente "1.11.0"] ; websockets
                  [prismatic/schema "1.1.2"]
                  [funcool/hodgepodge "0.1.4"] ;; local storage

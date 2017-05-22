@@ -146,16 +146,6 @@
   (and m (moment? m) (.isValid m)))
 
 
-(defn format
-  ([m]
-   (.format m))
-  ([m format-str]
-   (.format m format-str)))
-
-(defn format-time
-  "Formats and returns the time portion of the moment instance as a string."
-  [m]
-  (format m "h:mm a"))
 
 (defn iso-string
   "Converts a moment to an iso string."
@@ -210,13 +200,14 @@
   "Coerce to a moment from either string, integer, date, goog Date or goog DateTime.
    Returns nil if not coerceible."
   [x]
-  (cond
-    (or (string? x)
-        (moment? x)
-        (integer? x)
-        (date? x)) (js/moment. x)
-    (or (goog-date? x)
-        (goog-date-time? x)) (js/moment. (.getTime x))))
+  (if (moment? x)
+    x
+    (cond
+      (or (string? x)
+          (integer? x)
+          (date? x)) (js/moment. x)
+      (or (goog-date? x)
+          (goog-date-time? x)) (js/moment. (.getTime x)))))
 
 (defn coercible?
   "Tests if x is coercible."
@@ -243,6 +234,21 @@
   []
   (-> js/moment .-tz .guess))
 
+(defn format
+  ([m]
+   (assert (moment? m))
+   (.format m))
+  ([m format-str]
+   (assert (moment? m))
+   (.format m format-str))
+  ([m format-str timezone]
+   (assert (moment? m))
+   (format (tz m timezone) format-str)))
+
+(defn format-time
+  "Formats and returns the time portion of the moment instance as a string."
+  [m]
+  (format m "h:mm a"))
 
 (defn format-ts
   "Converts a datetime to a string for display relative to the reference date.

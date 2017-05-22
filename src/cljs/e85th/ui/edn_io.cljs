@@ -18,4 +18,6 @@
     (-pr-writer [o writer opts]
       (write-all writer "#datetime \"" (moment/iso-string o) "\""))))
 
-(cljs.reader/register-tag-parser! "datetime" time/date-time)
+(if js/moment
+  (cljs.reader/register-tag-parser! "datetime" moment/coerce)
+  (cljs.reader/register-tag-parser! "datetime" time/date-time))
