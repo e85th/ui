@@ -1,6 +1,7 @@
 (ns e85th.ui.moment
   "Wrapper for moment js."
   (:refer-clojure :exclude [clone second])
+  (:require [cljs-time.coerce :as tc])
   (:import [goog.date Date DateTime UtcDateTime]))
 
 (defonce Moment (some-> js/moment .-fn .-constructor))
@@ -305,6 +306,11 @@
 (defn millis
   [m]
   (.valueOf m))
+
+(defn to-date-time
+  "Convert to datetime"
+  [m]
+  (-> m millis tc/from-long))
 
 (defn- zp2
   [n]

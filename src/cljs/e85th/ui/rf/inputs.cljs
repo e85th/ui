@@ -147,8 +147,7 @@
   [attrs-map events-map content busy?]
   {[:button] (k/do->
               (set-attrs-and-events attrs-map events-map)
-              (k/content content)
-              ((if busy? k/add-class k/remove-class) "disabled"))
+              (k/content content))
    [:.busy-indicator] (if busy?
                         identity
                         (k/substitute ""))})
@@ -162,7 +161,7 @@
                  (atom false))
          event-v (u/as-vector event)]
      (fn [view busy-sub event content]
-       [view {} {:on-click #(rf/dispatch event-v)} content @busy?]))))
+       [view {:disabled @busy?} {:on-click #(rf/dispatch event-v)} content @busy?]))))
 
 (defn button
   ([event content]
@@ -180,6 +179,17 @@
 (defn label
   [sub]
   [rf-label :span.form-control-static sub])
+
+(defn rf-error-msg
+  [view sub]
+  (let [v (rf/subscribe (u/as-vector sub))]
+    (fn [view sub]
+      (when (seq @v)
+        [view @v]))))
+
+(defn error-msg
+  [sub]
+  [rf-error-msg :div.error-msg sub])
 
 
 (defn rf-select

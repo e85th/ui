@@ -70,9 +70,9 @@
   (let [place (.getPlace autocomplete)
         formatted-address (or (.-formatted_address place) "")
         geocode (place->geocode place)
-        _ (log/infof "selected place: %s" geocode)
+        ;_ (log/infof "selected place: %s" geocode)
         address-components (->> place .-address_components (map address-component->map))
-        _ (log/infof "selected address comps: %s" address-components)
+        ;_ (log/infof "selected address comps: %s" address-components)
         address (reduce (fn [ans {:keys [long-name short-name types] :as le-place}]
                               (cond
                                 (some #{"street_number"} types) (assoc ans :street-number long-name)
