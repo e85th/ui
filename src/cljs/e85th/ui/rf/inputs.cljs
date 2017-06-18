@@ -515,3 +515,14 @@
                                                 nil
                                                 (fn [x]
                                                   (dispatch-event tag-added-event x {:suggestion? true}))))})))
+
+
+(defn if-view
+  ([cond-sub true-view]
+   (if-view cond-sub true-view [:span]))
+  ([cond-sub true-view false-view]
+   (let [cond-val (rf/subscribe (u/as-vector cond-sub))]
+     (fn [_ _ _]
+       (if (true? @cond-val)
+         true-view
+         false-view)))))
