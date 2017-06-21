@@ -1,4 +1,4 @@
-(defproject e85th/ui "0.1.25"
+(defproject e85th/ui "0.1.26"
   :description "Frontend UI code."
   :url "https://github.com/e85th/ui"
   :license {:name "Apache License 2.0"
@@ -8,7 +8,6 @@
                  [re-frame "0.8.0"]
                  [com.cemerick/url "0.1.1"]
                  [com.taoensso/sente "1.11.0"] ; websockets
-                 [prismatic/schema "1.1.2"]
                  [funcool/hodgepodge "0.1.4"] ;; local storage
                  [com.andrewmcveigh/cljs-time "0.4.0"]
                  [hipo "0.5.2"] ;; hiccup -> dom modifiable item (for working with other js libs)

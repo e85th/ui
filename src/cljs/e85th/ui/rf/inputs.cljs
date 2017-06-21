@@ -5,7 +5,6 @@
             [taoensso.timbre :as log]
             [kioo.reagent :as k :refer-macros [defsnippet deftemplate]]
             [devcards.core :as d :refer-macros [defcard defcard-rg]]
-            [schema.core :as s]
             [e85th.ui.places :as places]
             [e85th.ui.rf.multi-select :as ms]
             [e85th.ui.rf.paginator :as paginator]
