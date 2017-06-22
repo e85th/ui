@@ -1,4 +1,4 @@
-(defproject e85th/ui "0.1.27-alpha2"
+(defproject e85th/ui "0.1.27"
   :description "Frontend UI code."
   :url "https://github.com/e85th/ui"
   :license {:name "Apache License 2.0"
