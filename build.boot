@@ -59,7 +59,7 @@
 
 (task-options!
  pom {:project 'e85th/ui
-      :version "0.1.28-alpha1"
+      :version "0.1.28"
       :description "UI code."
       :url "http://github.com/e85th/ui"
       :scm {:url "http://github.com/e85th/ui"}
