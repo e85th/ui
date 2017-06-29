@@ -1,7 +1,7 @@
 (set-env!
  :resource-paths #{"src/clj" "src/cljs" "src/cljc" "resources"}
  :dependencies '[[org.clojure/clojure "1.9.0-alpha17" :scope "provided"]
-                 [org.clojure/clojurescript "1.9.562" :scope "provided"]
+                 [org.clojure/clojurescript "1.9.660" :scope "provided"]
                  [org.clojure/core.async "0.3.443"] ;; override timbre/sente version for spec ns
                  [com.taoensso/timbre "4.10.0"]
                  [re-frame "0.9.4"]
@@ -13,7 +13,7 @@
                  ;; for development
                  [devcards "0.2.3"]
                  [cljs-ajax "0.6.0"]
-                 [kioo "0.4.2"]
+                 [kioo "0.5"]
                  [adzerk/boot-test "1.2.0" :scope "test"]
                  [adzerk/boot-cljs "2.0.0" :scope "test"]]
 
@@ -59,7 +59,7 @@
 
 (task-options!
  pom {:project 'e85th/ui
-      :version "0.1.28"
+      :version "0.1.29"
       :description "UI code."
       :url "http://github.com/e85th/ui"
       :scm {:url "http://github.com/e85th/ui"}
