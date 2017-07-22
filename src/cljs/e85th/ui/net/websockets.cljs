@@ -73,6 +73,8 @@
   (start-router!))
 
 (defn send-message!
+  "msg has to be a vector where the first item is a namespaced keyword. sente enforces this."
   [msg]
-  (log/infof "message to be sent: %s" msg)
-  (some-> @chsk-info :send-fn msg))
+  (if-some [send-fn (some-> chsk-info deref :send-fn)]
+    (send-fn msg)
+    (throw (ex-info "No send-fn. Were websockets initialized?" {}))) )
