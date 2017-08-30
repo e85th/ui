@@ -63,6 +63,32 @@
              make-fn-derived-sub)]
      (f sub-name signal-fn-or-args body))))
 
+(defmacro defsub-raw
+  [sub-name args & body]
+  (assert (vector? args) "defsub-raw args must be a vector.")
+  `(do
+     ~(keyword-var sub-name)
+     (re-frame.core/reg-sub-raw ~sub-name
+                                (fn ~args
+                                  (do ~@body)))))
+
+#_(defmacro defsub-rpc
+  [sub-name db-path subs-vec args & body]
+  (assert (vector? subs-vec) "defsub-rpc subs-vec must be a vector.")
+  (assert (vector? args) "defsub-rpc args must be a vector.")
+  (let [[supplied-vals-vec supplied-ev] args
+        all-subs (mapv make-subscription subs-vec)]
+    (println "all-subs: " all-subs)
+    `(do
+       ~(keyword-var sub-name)
+       (re-frame.core/reg-sub-raw ~sub-name
+                                  (fn [db# ev#]
+                                    @(reagent.ratom/reaction
+                                      (let [sub-vals# (mapv deref ~all-subs)
+                                            f# (fn [~supplied-vals-vec ~supplied-ev] ~@body)]
+                                        (f# sub-vals# ev#)))
+                                    (reagent.ratom/reaction (get-in db# ~db-path)))))))
+
 (defmacro defevent-fx
   "Define the event name as a keyword var and then register the function."
   [event-name args & body]
@@ -98,9 +124,9 @@
                                           (~post-change-fn v#))))))))
 
 (comment
-  (macroexpand-1 `(defsub blah
-                    [[a b] _]
-                    (let [x 1]
-                      "ok")))
+  (clojure.pprint/pprint
+   (macroexpand-1 `(defsub-rpc engagements m/engagements [subs/current-brand-name]
+                     [[current-brand-name] _]
+                     (rf/dispatch [e/fetch-engagements current-brand-name]))))
 
   )
