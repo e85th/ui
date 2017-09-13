@@ -1,0 +1,122 @@
+(ns e85th.ui.rf.awesomplete
+  (:require [re-frame.core :as rf]
+            [reagent.core :as reagent]
+            [reagent.ratom :as ratom]
+            [taoensso.timbre :as log]
+            [devcards.core :as d :refer-macros [defcard defcard-rg]]
+            [e85th.ui.dom :as dom]
+            [e85th.ui.util :as u]))
+
+(defn new-instance
+  "Creates a new instance based on the dom-sel and opts map."
+  [dom-sel opts]
+  (js/Awesomplete. (.querySelector js/document dom-sel) (clj->js opts)))
+
+
+
+
+(defn evaluate
+  [inst]
+  (.evaluate inst))
+
+(defn close
+  [inst]
+  (.close inst))
+
+(defn open
+  [inst]
+  (.open inst))
+
+(defn destroy
+  [inst]
+  (when inst
+    (.destroy inst)))
+
+(defn set-list*
+  "Sets the list property for the awesomplete instance. xs are convereted to js objs."
+  [inst xs]
+  (set! (.-list inst) (clj->js xs)))
+
+(defn set-list
+  "Sets and evaluates the data the instance is working with."
+  [inst xs]
+  ;; must call after setting list property to regenerate the list
+  ;; close it otherwise the box is open with the selected item highlighted
+  (doto inst
+    (set-list* xs)
+    (evaluate)
+    (close)))
+
+(defn register-callback
+  "cb is a 1 arity function that gets the event as the argument"
+  [event-name dom-sel cb]
+  (.on (js/$ dom-sel) event-name cb))
+
+(def register-select-complete (partial register-callback "awesomplete-selectcomplete"))
+
+(defn- comboplete-on-click
+  [combo]
+  (let [len (some-> combo .-ul .-childNodes .-length)]
+    (if (and len (zero? len))
+      (do
+        (set! (.-minChars combo) 0)
+        (evaluate combo))
+      (if (some-> combo .-ul (.hasAttribute "hidden"))
+        (open combo)
+        (close combo)))))
+
+
+(defn- dispatch-event
+  [e rf-event]
+  (when rf-event
+    (rf/dispatch (conj rf-event (dom/event-value e)))))
+
+
+(defn comboplete
+  "text-changed-event can be nil. opts are awesomplete options passed to the constructor.
+   text-changed-event is fired for user input changes only. If a selection is made then
+   only the selection-event is fired."
+  ([selected-sub options-sub selection-event opts]
+   (comboplete selected-sub options-sub selection-event opts))
+  ([selected-sub options-sub selection-event text-changed-event opts]
+   (let [dom-id (str (gensym "comboplete-"))
+         button-dom-id (str dom-id "-button")
+         state (atom {})
+         text-changed-listener #(dispatch-event % (:text-changed-event @state))
+         button-click-listener #(comboplete-on-click (:instance @state))]
+     (reagent/create-class
+      {:display-name "comboplete"
+       ;; use the args passed to reagent-render because they will change based on args changing
+       :reagent-render (fn [selected-sub options-sub selection-event text-changed-event opts]
+                         (swap! state assoc :selection-event (u/as-vector selection-event) :text-changed-event (some-> text-changed-event u/as-vector))
+                         (let [items @(rf/subscribe (u/as-vector options-sub))
+                               selection @(rf/subscribe (u/as-vector selected-sub))
+                               inst (:instance @state)]
+                                        ;(log/infof "suggested items before when %s, dom-id %s" items dom-id)
+                           (if inst
+                             (do
+                               (dom/set-element-value dom-id (or selection ""))
+                               (set-list inst items))
+
+                             (swap! state assoc :first-run-data {:items items :selection selection})))
+                         ;; always return the same markup for react
+                         [:span [:input {:id dom-id}] [:button {:id button-dom-id
+                                                                :class "comboplete-dropdown-btn"} "V"]])
+       :component-did-mount (fn []
+                              (let [dom-sel (str "#" dom-id)
+                                    {:keys [items selection] :or {:items [] :selection ""}} (:first-run-data @state)
+                                    inst (new-instance dom-sel opts)]
+
+                                (register-select-complete dom-sel #(dispatch-event % (:selection-event @state)))
+                                (dom/add-event-listener dom-id "change" text-changed-listener)
+
+                                (swap! state #(-> (assoc % :instance inst)
+                                                  (dissoc :first-run-data)))
+
+                                (set-list* inst items)
+                                (dom/set-element-value dom-id selection)
+                                (dom/add-event-listener button-dom-id "click" button-click-listener)))
+       :component-will-unmount (fn []
+                                 (some->> @state :instance destroy)
+                                 (dom/remove-event-listener dom-id "change" text-changed-listener)
+                                 (dom/remove-event-listener button-dom-id "click" button-click-listener))}))))

@@ -80,3 +80,19 @@
               (.-selected opt) (conj (.-value opt))))
           []
           (some-> dom-id element-by-id .-options array-seq)))
+
+
+(defn set-element-value
+  [id v]
+  (set! (.-value (element-by-id id)) v))
+
+
+(defn add-event-listener
+  [id event-name f]
+  (-> (element-by-id id)
+      (.addEventListener event-name f)))
+
+(defn remove-event-listener
+  [id event-name f]
+  (-> (element-by-id id)
+      (.removeEventListener event-name f)))

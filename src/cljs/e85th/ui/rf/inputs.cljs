@@ -421,7 +421,10 @@
   ([dom-selector awesomplete-atom display->item-atom selection-event on-select-fn]
    (init-awesomplete dom-selector awesomplete-atom display->item-atom selection-event on-select-fn (constantly nil)))
   ([dom-selector awesomplete-atom display->item-atom selection-event on-select-fn post-select-fn]
-   (reset! awesomplete-atom (js/Awesomplete. (.querySelector js/document dom-selector) #js {:minChars 1}))
+   (init-awesomplete dom-selector awesomplete-atom display->item-atom selection-event on-select-fn (constantly nil) {}))
+  ([dom-selector awesomplete-atom display->item-atom selection-event on-select-fn post-select-fn awesomplete-opts]
+   (log/infof "awesomplete-opts %s" awesomplete-opts)
+   (reset! awesomplete-atom (js/Awesomplete. (.querySelector js/document dom-selector) (clj->js awesomplete-opts)))
    (.on (js/$ dom-selector) "awesomplete-selectcomplete" (fn [e]
                                                            (let [selected (dom/event-value e)
                                                                  selection (@display->item-atom selected)]
@@ -432,12 +435,14 @@
 (defn awesomplete
   "opts can have keys :format-fn a one arity function to format the suggestions.
    It can have a placeholder as well."
-  [suggestions-sub text-changed-event selection-event {:keys [format-fn placeholder clear-input-on-select?] :or {format-fn identity
-                                                                                                                 placeholder "Search.."
-                                                                                                                 clear-input-on-select? false}}]
+  [suggestions-sub text-changed-event selection-event {:keys [format-fn placeholder clear-input-on-select? opts] :or {format-fn identity
+                                                                                                                      placeholder "Search.."
+                                                                                                                      clear-input-on-select? false
+                                                                                                                      opts {}}}]
+  (log/infof "opts: %s" opts)
   (let [dom-id (str (gensym "awesomplete-"))
         dom-sel (str "#" dom-id)
-        awesomplete (atom nil)
+        awesomplete-atom (atom nil)
         suggestions (rf/subscribe (u/as-vector suggestions-sub))
         display->item (atom {})
         display-ratom (reagent/atom "")
@@ -449,20 +454,24 @@
      {:display-name "awesomplete"
       :reagent-render (fn [_ _ _ _]
                         (let [suggested-items @suggestions]
-                          (when (and @awesomplete suggested-items)
+                          (when (and @awesomplete-atom suggested-items)
                             (reset! display->item (reduce (fn [ans x]
                                                             (assoc ans (format-fn x) x))
                                                           {}
                                                           suggested-items))
-                            (set! (.-list @awesomplete) (clj->js (keys @display->item)))))
+                            (set! (.-list @awesomplete-atom) (clj->js (keys @display->item)))))
                         [:input {:id dom-id
                                  :value @display-ratom
                                  :placeholder placeholder
                                  :on-change on-change-fn}])
       :component-did-mount (fn []
-                             (init-awesomplete dom-sel awesomplete display->item selection-event nil (fn []
-                                                                                                       (when clear-input-on-select?
-                                                                                                         (reset! display-ratom "")))))})))
+                             (init-awesomplete dom-sel awesomplete-atom display->item selection-event nil (fn []
+                                                                                                            (when clear-input-on-select?
+                                                                                                              (reset! display-ratom "")))
+                                               opts))
+      :component-will-unmount (fn []
+                                (some->> @awesomplete-atom .destroy))})))
+
 
 (defn tag-editor-suggester
   "NB. tag-added-event fires twice when suggestion is made. Will have to fix. "
