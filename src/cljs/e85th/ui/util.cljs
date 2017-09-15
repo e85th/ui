@@ -94,3 +94,12 @@
              (assoc m k (val-agg-fn (map val-fn v))))
            {}
            (group-by key-fn xs))))
+
+(defn assoc-in+
+  "Similar to assoc-in except can specify multiple kv pairs"
+  [m & path-vals]
+  (assert (even? (count path-vals)) "Expected even number of paths and values")
+  (reduce (fn [m [path v]]
+            (assoc-in m path v))
+          m
+          (partition 2 path-vals)))
