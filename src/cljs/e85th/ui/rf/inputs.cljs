@@ -192,7 +192,7 @@
 
 
 (defn rf-select
-  [view selected-sub options-sub attrs-map events-map select-description]
+  [view options-sub selected-sub attrs-map events-map select-description]
   (let [selected (rf/subscribe (u/as-vector selected-sub))
         options (rf/subscribe (u/as-vector options-sub))]
     (fn [view selected-sub options-sub attrs-map events-map select-description]
@@ -209,10 +209,10 @@
 
 (defn select
   "options-sub should yield a seq of  maps with keys :id and :name."
-  ([selected-sub event options-sub]
-   (select selected-sub event options-sub "Select"))
-  ([selected-sub event options-sub select-description]
-   [rf-select :select selected-sub options-sub {} {:on-change #(rf/dispatch (conj (u/as-vector event) (dom/event-value %)))} select-description]))
+  ([options-sub selected-sub selection-event]
+   (select options-sub selected-sub selection-event "Select"))
+  ([options-sub selected-sub selection-event select-description]
+   [rf-select :select options-sub selected-sub {} {:on-change #(rf/dispatch (conj (u/as-vector selection-event) (dom/event-value %)))} select-description]))
 
 ;;--- Google Places / Address Suggest
 (defsnippet places-autocomplete* "templates/e85th/ui/rf/inputs.html" [:div.places-autocomplete]

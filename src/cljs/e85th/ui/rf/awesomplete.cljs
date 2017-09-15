@@ -72,13 +72,17 @@
     (rf/dispatch (conj rf-event (dom/event-value e)))))
 
 
+(def default-comboplete-opts
+  ;{:filter (constantly true)}
+  {})
+
 (defn comboplete
-  "text-changed-event can be nil. opts are awesomplete options passed to the constructor.
+  "text-changed-event can be nil. lib-opts in opts are awesomplete options passed to the constructor.
    text-changed-event is fired for user input changes only. If a selection is made then
    only the selection-event is fired."
-  ([selected-sub options-sub selection-event opts]
-   (comboplete selected-sub options-sub selection-event opts))
-  ([selected-sub options-sub selection-event text-changed-event opts]
+  ([options-sub selected-sub selection-event opts]
+   (comboplete options-sub selected-sub selection-event opts))
+  ([options-sub selected-sub selection-event text-changed-event {:keys [lib-opts] :or {lib-opts default-comboplete-opts} :as opts}]
    (let [dom-id (str (gensym "comboplete-"))
          button-dom-id (str dom-id "-button")
          state (atom {})
@@ -87,7 +91,7 @@
      (reagent/create-class
       {:display-name "comboplete"
        ;; use the args passed to reagent-render because they will change based on args changing
-       :reagent-render (fn [selected-sub options-sub selection-event text-changed-event opts]
+       :reagent-render (fn [options-sub selected-sub selection-event text-changed-event opts]
                          (swap! state assoc :selection-event (u/as-vector selection-event) :text-changed-event (some-> text-changed-event u/as-vector))
                          (let [items @(rf/subscribe (u/as-vector options-sub))
                                selection @(rf/subscribe (u/as-vector selected-sub))
@@ -105,7 +109,7 @@
        :component-did-mount (fn []
                               (let [dom-sel (str "#" dom-id)
                                     {:keys [items selection] :or {:items [] :selection ""}} (:first-run-data @state)
-                                    inst (new-instance dom-sel opts)]
+                                    inst (new-instance dom-sel lib-opts)]
 
                                 (register-select-complete dom-sel #(dispatch-event % (:selection-event @state)))
                                 (dom/add-event-listener dom-id "change" text-changed-listener)
