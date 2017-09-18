@@ -68,6 +68,7 @@
 
 (defn- dispatch-event
   [e rf-event]
+  ;(log/infof "dispatch-event: %s, %s" e rf-event)
   (when rf-event
     (rf/dispatch (conj rf-event (dom/event-value e)))))
 
@@ -104,8 +105,9 @@
 
                              (swap! state assoc :first-run-data {:items items :selection selection})))
                          ;; always return the same markup for react
-                         [:span [:input {:id dom-id}] [:button {:id button-dom-id
-                                                                :class "comboplete-dropdown-btn"} "V"]])
+                         [:span [:input {:id dom-id
+                                         :class "comboplete-input"}] [:button {:id button-dom-id
+                                                                               :class "comboplete-dropdown-btn"} "V"]])
        :component-did-mount (fn []
                               (let [dom-sel (str "#" dom-id)
                                     {:keys [items selection] :or {:items [] :selection ""}} (:first-run-data @state)
@@ -124,3 +126,54 @@
                                  (some->> @state :instance destroy)
                                  (dom/remove-event-listener dom-id "change" text-changed-listener)
                                  (dom/remove-event-listener button-dom-id "click" button-click-listener))}))))
+
+(defn awesomplete
+  "text-changed-event can be nil. lib-opts in opts are awesomplete options passed to the constructor.
+   text-changed-event is fired for user input changes only. If a selection is made then
+   only the selection-event is fired. format-fn might be needed for doing html in the suggestion?"
+  [suggestions-sub display-sub selection-event text-changed-event {:keys [lib-opts placeholder clear-input-on-select? format-fn] :or {placeholder "Search..."
+                                                                                                                                      format-fn identity
+                                                                                                                                      clear-input-on-select? false
+                                                                                                                                      lib-opts {}}}]
+  (let [dom-id (str (gensym "awesomplete-"))
+        state (atom {})
+        on-change-fn #(dispatch-event % (:text-changed-event @state))
+        selection-fn (fn [e]
+                       (let [selected (dom/event-value e)
+                             {:keys [display->item selection-event]} @state
+                             selection (display->item selected)]
+                         (rf/dispatch (conj selection-event selection))))
+        items-by-display #(reduce (fn [m x]
+                                    (assoc m (format-fn x) x))
+                                  {}
+                                  %)]
+    (reagent/create-class
+     {:display-name "awesomplete"
+      ;; use the args passed to reagent-render because they will change based on args changing
+      :reagent-render (fn [suggestions-sub display-sub selection-event text-changed-event opts]
+                        (let [items @(rf/subscribe (u/as-vector suggestions-sub))
+                              display @(rf/subscribe (u/as-vector display-sub))
+                              inst (:instance @state)
+                              display->item (items-by-display items)]
+
+                          (swap! state assoc
+                                 :selection-event (u/as-vector selection-event)
+                                 :text-changed-event (u/as-vector text-changed-event)
+                                 :display->item display->item)
+
+                          (when inst
+                            (dom/set-element-value dom-id (or display "")) ; needed otherwise the value doesn't whow up even when :value is used on input
+                            (set-list* inst (keys display->item))))
+                        ;; always return the same markup for react
+                        [:input {:id dom-id :class "awesomplete-input" :on-change on-change-fn}])
+      :component-did-mount (fn []
+                             (let [dom-sel (str "#" dom-id)
+                                   {:keys [display->item display] :or {:display->item {} :display ""}} @state
+                                   inst (new-instance dom-sel lib-opts)]
+
+                               (register-select-complete dom-sel selection-fn)
+                               (swap! state assoc :instance inst)
+
+                               (set-list* inst (keys display->item))
+                               (dom/set-element-value dom-id display)))
+      :component-will-unmount #(some->> @state :instance destroy)})))

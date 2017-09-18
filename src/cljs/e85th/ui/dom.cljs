@@ -96,3 +96,14 @@
   [id event-name f]
   (-> (element-by-id id)
       (.removeEventListener event-name f)))
+
+
+(defn set-interval
+  "Sets an interval and returns the ID"
+  [f ms]
+  (js/window.setInterval f ms))
+
+
+(defn clear-interval
+  [id]
+  (js/window.clearInterval id))
