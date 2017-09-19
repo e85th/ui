@@ -7,14 +7,13 @@
   ;; get existing instance, don't create a new one.
   (-> sel js/$ (.jstree true)))
 
-;dom-id (str (gensym "js-tree-"))
 (defn js-tree
   ([dom-id init-data]
    (js-tree dom-id init-data (constantly nil)))
   ([dom-id init-data on-mount-fn]
    (reagent/create-class
     {:display-name "js-tree"
-     :reagent-render (fn []
+     :reagent-render (fn [dom-id _ _]
                        [:div {:id dom-id}])
      :component-did-mount (fn []
                             (-> (str "#" dom-id) js/$ (.jstree (clj->js init-data)))
