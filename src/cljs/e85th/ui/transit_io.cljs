@@ -7,7 +7,7 @@
 
 (def reader
   (transit/reader :json {:handlers {"f" (fn [v] (u/parse-float v nil))
-                                    "m" (if js/moment
+                                    "m" (if moment/Moment
                                           moment/coerce
                                           (fn [s] (UtcDateTime.fromTimestamp s)))}}))
 
@@ -30,4 +30,5 @@
 (def writer
   (transit/writer :json {:handlers (cond-> {DateTime datetime-writer
                                             UtcDateTime datetime-writer}
-                                     moment/Moment (assoc moment/Moment moment-writer))}))
+                                     moment/Moment (assoc moment/Moment moment-writer)
+                                     )}))

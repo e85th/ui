@@ -4,7 +4,7 @@
   (:require [cljs-time.coerce :as tc])
   (:import [goog.date Date DateTime UtcDateTime]))
 
-(defonce Moment (some-> js/moment .-fn .-constructor))
+(defonce Moment (some-> js/window .-moment .-fn .-constructor))
 
 (def short-month-name
   {0 "Jan"
