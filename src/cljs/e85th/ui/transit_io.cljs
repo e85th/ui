@@ -30,5 +30,4 @@
 (def writer
   (transit/writer :json {:handlers (cond-> {DateTime datetime-writer
                                             UtcDateTime datetime-writer}
-                                     moment/Moment (assoc moment/Moment moment-writer)
-                                     )}))
+                                     moment/Moment (assoc moment/Moment moment-writer))}))

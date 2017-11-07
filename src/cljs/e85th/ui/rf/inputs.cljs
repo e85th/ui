@@ -534,3 +534,37 @@
        (if (true? @cond-val)
          true-view
          false-view)))))
+
+
+(defsnippet file-input-button* "templates/e85th/ui/rf/inputs.html" [:span.file-input-button]
+  [dom-id attrs-map events-map content busy?]
+  {[:input] (set-attrs-and-events attrs-map events-map)
+   [:label] (k/do->
+             (k/set-attr :for dom-id)
+             (k/content content))
+   [:.busy-indicator] (if busy?
+                        identity
+                        (k/substitute ""))})
+
+(defn rf-file-input
+  ([view event content]
+   (rf-file-input view nil event content))
+  ([view busy-sub event content]
+   (let [dom-id (str (gensym "file-input-"))
+         on-file (fn [event]
+                   (let [element (dom/element-by-id dom-id)
+                         file (some-> element .-files (.item 0))]
+                     (when file
+                       (rf/dispatch (-> event u/as-vector (conj file))))
+                     (set! (.-value element) "")))
+         busy? (if busy-sub
+                 (rf/subscribe (u/as-vector busy-sub))
+                 (atom false))]
+     (fn [view busy-sub event content]
+       [view dom-id {:disabled @busy? :id dom-id} {:on-change #(on-file event)} content @busy?]))))
+
+(defn file-input
+  ([event content]
+   (file-input nil event content))
+  ([sub event content]
+   [rf-file-input file-input-button* sub event content]))

@@ -165,7 +165,7 @@
                             (dom/set-element-value dom-id (or display "")) ; needed otherwise the value doesn't whow up even when :value is used on input
                             (set-list* inst (keys display->item))))
                         ;; always return the same markup for react
-                        [:input {:id dom-id :class "awesomplete-input" :on-change on-change-fn}])
+                        [:input {:id dom-id :class "awesomplete-input" :on-change on-change-fn :placeholder placeholder}])
       :component-did-mount (fn []
                              (let [dom-sel (str "#" dom-id)
                                    {:keys [display->item display] :or {:display->item {} :display ""}} @state
