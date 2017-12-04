@@ -1,4 +1,4 @@
-(defproject e85th/ui "0.1.37-alpha1"
+(defproject e85th/ui "0.1.39-alpha1"
   :description "Frontend UI code."
   :url "https://github.com/e85th/ui"
   :license {:name "Apache License 2.0"
@@ -8,7 +8,7 @@
                  [com.google.guava/guava "23.1-jre"]
                  [org.clojure/core.async "0.3.443"] ;; override timbre/sente version for spec ns
                  [com.taoensso/timbre "4.10.0"]
-                 [e85th/commons "0.1.28-alpha1"]
+                 [e85th/commons "0.1.29-alpha1"]
                  [re-frame "0.10.2"]
                  [com.cemerick/url "0.1.1"]
                  [com.taoensso/sente "1.11.0"] ; websockets
