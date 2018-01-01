@@ -12,7 +12,8 @@
             [e85th.ui.time :as time]
             [e85th.ui.moment :as moment]
             [e85th.ui.util :as u]
-            [goog.events :as events])
+            [goog.events :as events]
+            [clojure.string :as str])
   (:import [goog.i18n DateTimeFormat DateTimeParse]
            [goog.ui InputDatePicker]
            [goog.date Date DateTime]
@@ -29,6 +30,116 @@
   [rf-event event-reader-fn]
   (fn [e]
     (dispatch-event rf-event (event-reader-fn e))))
+
+
+(defn- ensure-simple-content
+  [node]
+  (let [content (first (or (:content node) [""]))]
+    (when-not (string? content)
+      (throw (js/Error. "Can only deal with simple string content.")))
+    content))
+
+(defn- rename-class-attr
+  "attrs is a map of attrs from kioo"
+  [{:keys [className] :as attrs}]
+  (-> attrs
+      (assoc :class className)
+      (dissoc :className)))
+
+(defn- label-view*
+  [tag attrs sub]
+  (let [content (rf/subscribe (u/as-vector sub))]
+    (fn [tag attrs _]
+      [tag attrs @content])))
+
+(defn handle-label
+  [sub]
+  (fn [{:keys [tag attrs] :as node}]
+    (ensure-simple-content node)
+    [label-view* tag (rename-class-attr attrs) sub]))
+
+;; might need an optional callback fn to modify class add/remove/set
+(defn- text-view*
+  [attrs sub event]
+  (let [text (rf/subscribe (u/as-vector sub))
+        on-change-fn (new-on-change-handler event dom/event-value)]
+    ;(log/infof "Regular rf-text-input setup with sub %s, event %s" sub event)
+    (fn [attrs _ _]
+      (let [new-attrs (-> attrs
+                          rename-class-attr
+                          (assoc :value (or @text "")
+                                 :on-change on-change-fn))]
+        ;(log/infof "text-view-1 attrs: %s, new-attrs: %s" attrs new-attrs)
+        [:input new-attrs]))))
+
+(defn handle-text
+  "This is a kioo style function, it is tailored after (k/substitute ...).
+   This returns a function which returns the same view for react so that
+   the caller of this function is not re-rendered. Only the text field
+   will be re-rendered."
+  [sub event]
+  (fn [{:keys [attrs] :as node}]
+    ;; return the same view, sub in other fn limits what's re-rendered
+    [text-view* attrs sub event]))
+
+
+(defn- checkbox-view*
+  [tag attrs sub event]
+  (let [checked? (rf/subscribe (u/as-vector sub))
+        on-change-fn (new-on-change-handler event dom/event-checked)]
+    (fn [tag attrs _ _]
+      (let [new-attrs (-> attrs
+                          rename-class-attr
+                          (assoc :checked (if (true? @checked?) true false)
+                                 :on-change on-change-fn))]
+        [tag new-attrs]))))
+
+(defn handle-checkbox
+  [sub event]
+  (fn [{:keys [tag attrs] :as node}]
+    [checkbox-view* tag (rename-class-attr attrs) sub event]))
+
+(defn- button-view*
+  "assuming content is a string."
+  [tag attrs content busy-sub event]
+  (let [busy? (if busy-sub
+                 (rf/subscribe (u/as-vector busy-sub))
+                 (atom false))
+        event-v (u/as-vector event)]
+    (fn [tag attrs content _ _]
+      (let [new-attrs (if @busy?
+                        (assoc attrs :disabled true)
+                        (dissoc attrs :disabled))
+            class-name (cond-> (:class new-attrs)
+                         @busy? (set-class "button--busy"))
+            new-attrs (assoc new-attrs
+                             :class class-name
+                             :on-click #(rf/dispatch event-v))]
+        ;(log/infof "new-attrs: %s" new-attrs)
+        [tag new-attrs content]))))
+
+(defn handle-button
+  "kioo style function tailored after (k/substitute ...)"
+  ([event]
+   (handle-button nil event))
+  ([busy-sub event]
+   (fn [{:keys [tag attrs] :as node}]
+     (let [button-content (ensure-simple-content node)
+           attrs (rename-class-attr attrs)]
+       [button-view* tag attrs button-content busy-sub event]))))
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 (defn set-attrs-and-events
   [attrs-map events-map]
@@ -59,7 +170,7 @@
              (set-attrs-and-events attrs-map events-map)
              (k/after (error-block error)))})
 
-
+;; Deprecated use handle-text
 (defn rf-text-input
   "re-framed text-input, subscribes and updates, dispatches on-change event
   error-sub-or-fn can be either a keyword, vector (for re-frame subscription),
@@ -74,16 +185,22 @@
                 (vector? error-sub-or-fn) (rf/subscribe error-sub-or-fn)
                 (keyword? error-sub-or-fn) (rf/subscribe [error-sub-or-fn])
                 :else (throw (js/Error. (str "Don't know how to deal with type: " (type error-sub-or-fn)))))]
+
+    ;(log/infof "Regular rf-text-input setup with sub %s, event %s" sub event)
     (fn [view error-sub-or-fn sub event attrs-map events-map]
       ;; error will be nil only if error-sub-or-fn was a function during setup
       (let [text-error (if (fn? error-sub-or-fn)
                          (error-sub-or-fn @text)
                          @error)]
+
+        ;(log/infof "Regular rf-text-input re-rendering with sub %s, event %s, text: %s" sub event @text)
         [view
          (assoc attrs-map :value (or @text ""))
          (assoc events-map :on-change (new-on-change-handler event dom/event-value))
          text-error]))))
 
+
+;; deprecated
 (defn new-text-input
   ([view error-sub-or-fn sub event]
    (new-text-input view error-sub-or-fn sub event {}))
@@ -93,25 +210,32 @@
    [rf-text-input view error-sub-or-fn sub event attrs-map events-map]))
 
 
+;; deprecated
 (def ^{:doc "Text input field without visual cues for error validation."}
   std-text (partial new-text-input standard-text-input* nil))
 
+;; deprecated
 (def ^{:doc "Text input field with validaiton and visual cues."}
   text (partial new-text-input standard-text-input*))
 
+;; deprecated
 (def ^{:doc "Password input field without visual cues for error validation."}
   std-password (partial new-text-input standard-password-input* nil))
 
+;; deprecated
 (def ^{:doc "Password input field with validaiton and visual cues."}
   password (partial new-text-input standard-password-input*))
 
+;; deprecated
 (defsnippet url* "templates/e85th/ui/rf/inputs.html" [:div.url-input]
   [attrs-map events-map]
   {[:input] (set-attrs-and-events attrs-map events-map)})
 
+;; deprecated
 (def ^{:doc "URL input field without visual validation except for what the browser supports"}
   std-url (partial new-text-input url* nil))
 
+;; deprecated
 (def ^{:doc "URL input field with visual validation."}
   url (partial new-text-input url*))
 
@@ -167,6 +291,16 @@
    (button nil event content))
   ([sub event content]
     [rf-button standard-button* sub event content]))
+
+(defn- set-class
+  [css-class class-to-add]
+  (let [css-class (or css-class "")
+        existing (set (str/split css-class #" "))]
+    (if (existing class-to-add)
+      css-class
+      (str css-class " " class-to-add))))
+
+
 
 
 (defn rf-label
