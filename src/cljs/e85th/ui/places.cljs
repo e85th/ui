@@ -8,11 +8,13 @@
 (defn compose-address
   "Takes components of an address and filters out non-blanks and constructs
    a ', ' separated string."
-  [street city state zip]
-  (->> [street city state zip]
-       (remove str/blank?)
-       (interpose ", " )
-       (apply str)))
+  [street-number street city state zip]
+  (let [street-display (cond->> street
+                         (not (str/blank? street-number)) (str street-number " "))]
+    (->> [street-display city state zip]
+         (remove str/blank?)
+         (interpose ", " )
+         (apply str))))
 
 (defn google-places-script-src
   [callback-fn-name]
@@ -53,31 +55,26 @@
 (defn parse-selected-place
   "autocomplete is a google.maps.place.Autocomplete instance.
    Returns nil if an incomplete address is entered.
-   Returns a Place map with all optional keys :street-number :street :street-1 :city
+   Returns a Place map with all optional keys :street-number :street :city
    :state :country :postal-code :lat :lng :formatted-address."
   [autocomplete]
   (let [place (.getPlace autocomplete)
         formatted-address (or (.-formatted_address place) "")
         geocode (place->geocode place)
-        ;_ (log/infof "selected place: %s" geocode)
-        address-components (->> place .-address_components (map address-component->map))
-        ;_ (log/infof "selected address comps: %s" address-components)
-        address (reduce (fn [ans {:keys [long-name short-name types] :as le-place}]
-                              (cond
-                                (some #{"street_number"} types) (assoc ans :street-number long-name)
-                                (some #{"route"} types) (assoc ans :street long-name)
-                                (some #{"locality"} types) (assoc ans :city long-name)
-                                (some #{"sublocality"} types) (if (:city ans)
-                                                                ans
-                                                                (assoc ans :city long-name))
-                                (some #{"administrative_area_level_1"} types) (assoc ans :state short-name)
-                                (some #{"country"} types) (assoc ans :country short-name)
-                                (some #{"postal_code"} types) (assoc ans :postal-code long-name)
-                                :else ans))
-                        (assoc geocode :formatted-address formatted-address)
-                        address-components)]
-    (when (seq address)
-      (assoc address :street-1 (->> ((juxt :street-number :street) address)
-                                    (remove nil?)
-                                    (interpose " ")
-                                    (apply str))))))
+        address-components (->> place .-address_components (map address-component->map))]
+    ;;(log/infof "selected place: %s" geocode)
+    ;;(log/infof "selected address comps: %s" address-components)
+    (reduce (fn [ans {:keys [long-name short-name types] :as le-place}]
+              (cond
+                (some #{"street_number"} types) (assoc ans :street-number long-name)
+                (some #{"route"} types) (assoc ans :street long-name)
+                (some #{"locality"} types) (assoc ans :city long-name)
+                (some #{"sublocality"} types) (if (:city ans)
+                                                ans
+                                                (assoc ans :city long-name))
+                (some #{"administrative_area_level_1"} types) (assoc ans :state short-name)
+                (some #{"country"} types) (assoc ans :country short-name)
+                (some #{"postal_code"} types) (assoc ans :postal-code long-name)
+                :else ans))
+            (assoc geocode :formatted-address formatted-address)
+            address-components)))

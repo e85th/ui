@@ -1,4 +1,5 @@
 (ns e85th.ui.rf.inputs
+  (:refer-clojure :exclude [select])
   (:require [re-frame.core :as rf]
             [reagent.core :as reagent]
             [reagent.ratom :as ratom]
@@ -12,7 +13,9 @@
             [e85th.ui.time :as time]
             [e85th.ui.moment :as moment]
             [e85th.ui.util :as u]
-            [goog.events :as events])
+            [goog.events :as events]
+            [clojure.string :as str]
+            [clojure.set :as set])
   (:import [goog.i18n DateTimeFormat DateTimeParse]
            [goog.ui InputDatePicker]
            [goog.date Date DateTime]
@@ -30,218 +33,284 @@
   (fn [e]
     (dispatch-event rf-event (event-reader-fn e))))
 
-(defn set-attrs-and-events
-  [attrs-map events-map]
-  ;; seq on a map results in [[k1 v1] [k2 v2]]
-  (k/do->
-   (apply k/set-attr (flatten (seq attrs-map)))
-   (apply k/listen (flatten (seq events-map)))))
+(defn- rename-class-attr
+  "attrs is a map of attrs from kioo"
+  [{:keys [className] :as attrs}]
+  (-> attrs
+      (assoc :class className)
+      (dissoc :className)))
 
-(defsnippet error-block* "templates/e85th/ui/rf/inputs.html" [:span.error-block :> any-node]
-  [error]
-  {[:.error-message] (k/content error)})
+(defn- compute-class
+  "Computes the value of the class attr based on existing value
+   and classes being added and removed"
+  ([css-class classes-to-add]
+   (compute-class css-class classes-to-add nil))
+  ([css-class classes-to-add classes-to-rm]
+   (let [existing-classes (-> (or css-class "")
+                              (str/split #" ")
+                              set)]
+     (->> (set/difference existing-classes (set classes-to-rm))
+          (set/union (set classes-to-add))
+          (str/join " ")))))
 
-(defn error-block
-  [error]
-  (if error
-    (error-block* error)
-    ""))
-
-(defsnippet standard-text-input* "templates/e85th/ui/rf/inputs.html" [:div.standard-text-input]
-  [attrs-map events-map error]
-  {[:input] (k/do->
-             (set-attrs-and-events attrs-map events-map)
-             (k/after (error-block error)))})
-
-(defsnippet standard-password-input* "templates/e85th/ui/rf/inputs.html" [:div.standard-password-input]
-  [attrs-map events-map error]
-  {[:input] (k/do->
-             (set-attrs-and-events attrs-map events-map)
-             (k/after (error-block error)))})
+(defn- handle-classes
+  [{:keys [add-classes remove-classes] :as attrs}]
+  (cond-> attrs
+    (or add-classes remove-classes)
+    (-> (update :class compute-class add-classes remove-classes)
+        (dissoc :add-classes :remove-classes))))
 
 
-(defn rf-text-input
-  "re-framed text-input, subscribes and updates, dispatches on-change event
-  error-sub-or-fn can be either a keyword, vector (for re-frame subscription),
-  nil or a function. If it's a function, it takes the current text value and
-  returns nil if no validation errors or a string indicating the error message.
-  The view is a function that takes attrs-map, events-map and error-message."
-  [view error-sub-or-fn sub event attrs-map events-map]
-  (let [text (rf/subscribe (u/as-vector sub))
-        error (cond
-                (nil? error-sub-or-fn) (atom nil)
-                (fn? error-sub-or-fn) nil
-                (vector? error-sub-or-fn) (rf/subscribe error-sub-or-fn)
-                (keyword? error-sub-or-fn) (rf/subscribe [error-sub-or-fn])
-                :else (throw (js/Error. (str "Don't know how to deal with type: " (type error-sub-or-fn)))))]
-    (fn [view error-sub-or-fn sub event attrs-map events-map]
-      ;; error will be nil only if error-sub-or-fn was a function during setup
-      (let [text-error (if (fn? error-sub-or-fn)
-                         (error-sub-or-fn @text)
-                         @error)]
-        [view
-         (assoc attrs-map :value (or @text ""))
-         (assoc events-map :on-change (new-on-change-handler event dom/event-value))
-         text-error]))))
+(defn- ensure-simple-content
+  [node]
+  (let [content (or (first (:content node [""]))
+                    "")]
+    (when-not (string? content)
+      (throw (ex-info "Can only deal with simple string content." node)))
+    content))
 
-(defn new-text-input
-  ([view error-sub-or-fn sub event]
-   (new-text-input view error-sub-or-fn sub event {}))
-  ([view error-sub-or-fn sub event attrs-map]
-   (new-text-input view error-sub-or-fn sub event attrs-map {}))
-  ([view error-sub-or-fn sub event attrs-map events-map]
-   [rf-text-input view error-sub-or-fn sub event attrs-map events-map]))
-
-
-(def ^{:doc "Text input field without visual cues for error validation."}
-  std-text (partial new-text-input standard-text-input* nil))
-
-(def ^{:doc "Text input field with validaiton and visual cues."}
-  text (partial new-text-input standard-text-input*))
-
-(def ^{:doc "Password input field without visual cues for error validation."}
-  std-password (partial new-text-input standard-password-input* nil))
-
-(def ^{:doc "Password input field with validaiton and visual cues."}
-  password (partial new-text-input standard-password-input*))
-
-(defsnippet url* "templates/e85th/ui/rf/inputs.html" [:div.url-input]
-  [attrs-map events-map]
-  {[:input] (set-attrs-and-events attrs-map events-map)})
-
-(def ^{:doc "URL input field without visual validation except for what the browser supports"}
-  std-url (partial new-text-input url* nil))
-
-(def ^{:doc "URL input field with visual validation."}
-  url (partial new-text-input url*))
-
-(defsnippet standard-checkbox* "templates/e85th/ui/rf/inputs.html" [:div.standard-checkbox]
-  [attrs-map events-map label]
-  {[:input] (k/do->
-             (set-attrs-and-events attrs-map events-map)
-             (if label
-               (k/after label)
-               identity))})
-
-(defn rf-checkbox
-  "re-framed text-input, subscribes and updates, dispatches on-change event"
-  [view sub event attrs-map events-map label]
-  (let [checked? (rf/subscribe (u/as-vector sub))]
-    (fn [view sub event attrs-map events-map]
-      ;; @checked? should be a boolean
-      [view
-       (assoc attrs-map :checked @checked?)
-       (assoc events-map :on-change (new-on-change-handler event dom/event-checked))
-       label])))
-
-
-(defn checkbox
-  ([sub event]
-   (checkbox sub event nil))
-  ([sub event label]
-   [rf-checkbox standard-checkbox* sub event {} {} label]))
-
-
-(defsnippet standard-button* "templates/e85th/ui/rf/inputs.html" [:span.standard-button]
-  [attrs-map events-map content busy?]
-  {[:button] (k/do->
-              (set-attrs-and-events attrs-map events-map)
-              (k/content content))
-   [:.busy-indicator] (if busy?
-                        identity
-                        (k/substitute ""))})
-
-(defn rf-button
-  ([view event content]
-   (rf-button view nil event content))
-  ([view busy-sub event content]
-   (let [busy? (if busy-sub
-                 (rf/subscribe (u/as-vector busy-sub))
-                 (atom false))
-         event-v (u/as-vector event)]
-     (fn [view busy-sub event content]
-       [view {:disabled @busy?} {:on-click #(rf/dispatch event-v)} content @busy?]))))
-
-(defn button
-  ([event content]
-   (button nil event content))
-  ([sub event content]
-    [rf-button standard-button* sub event content]))
-
-
-(defn rf-label
-  [view sub]
-  (let [v (rf/subscribe (u/as-vector sub))]
-    (fn [view sub]
-      [view @v])))
+;;----------------------------------------------------------------------
+;; Label
+;;----------------------------------------------------------------------
+(defn- label-view*
+  [tag attrs sub]
+  (let [content (rf/subscribe (u/as-vector sub))]
+    (fn [tag attrs _]
+      [tag attrs @content])))
 
 (defn label
   [sub]
-  [rf-label :span.form-control-static sub])
+  (fn [{:keys [tag attrs] :as node}]
+    (ensure-simple-content node)
+    [label-view* tag (rename-class-attr attrs) sub]))
 
-(defn rf-error-msg
-  [view sub]
-  (let [v (rf/subscribe (u/as-vector sub))]
-    (fn [view sub]
-      (when (seq @v)
-        [view @v]))))
 
-(defn error-msg
+;;----------------------------------------------------------------------
+;; Message / Error Message
+;;----------------------------------------------------------------------
+(defn- message-view*
+  [tag attrs sub]
+  (let [sub-val (rf/subscribe (u/as-vector sub))]
+    (fn [tag attrs _]
+      (let [content @sub-val]
+        (when (some? content)
+          [tag attrs content])))))
+
+(defn message
+  "Displays the message if any otherwise shows nothing. Useful for error messages etc."
   [sub]
-  [rf-error-msg :div.error-msg sub])
+  (fn [{:keys [tag attrs] :as node}]
+    (ensure-simple-content node)
+    [message-view* tag (rename-class-attr attrs) sub]))
+
+;;----------------------------------------------------------------------
+;; Text Controls
+;;----------------------------------------------------------------------
+;; might need an optional callback fn to modify class add/remove/set
+(defn- normalize-text-sub
+  "Returns a map of the attrs. Which facilitates adding/removing classes and potentially
+   other attrs that don't need processing."
+  [attrs v]
+  (cond
+    (nil? v) (assoc attrs :value "")
+    (string? v) (assoc attrs :value v)
+    (map? v) (-> (merge attrs v)
+                 (assoc :value (:value v ""))
+                 handle-classes)
+    :else (throw (ex-info "Unknown type." {:v v :type (type v)}))))
+
+(defn- text-view*
+  [attrs sub event]
+  (let [sub-val (rf/subscribe (u/as-vector sub))]
+    (fn [attrs _ _]
+      [:input (normalize-text-sub attrs @sub-val)])))
+
+(defn text
+  "This is a kioo style function, it is tailored after (k/substitute ...).
+   This returns a function which returns the same view for react so that
+   the caller of this function is not re-rendered. Only the text field
+   will be re-rendered. The sub can yield either a string or a map. If
+   a map, then it should have at least the key `:value` and can have
+   `:add-classes` and `:remove-classes`"
+  [sub event]
+  (fn [{:keys [attrs] :as node}]
+    ;; return the same view, sub in other fn limits what's re-rendered
+    (let [attrs (-> (rename-class-attr attrs)
+                    (assoc :on-change (new-on-change-handler event dom/event-value)))]
+      [text-view* attrs sub event])))
 
 
-(defn rf-select
-  [view options-sub selected-sub attrs-map events-map select-description]
+;;----------------------------------------------------------------------
+;; Checkbox Controls
+;;----------------------------------------------------------------------
+(defn- checkbox-view*
+  [tag attrs sub event]
+  (let [checked? (rf/subscribe (u/as-vector sub))
+        on-change-fn (new-on-change-handler event dom/event-checked)]
+    (fn [tag attrs _ _]
+      (let [new-attrs (-> attrs
+                          rename-class-attr
+                          (assoc :checked (if (true? @checked?) true false)
+                                 :on-change on-change-fn))]
+        [tag new-attrs]))))
+
+(defn checkbox
+  [sub event]
+  (fn [{:keys [tag attrs] :as node}]
+    [checkbox-view* tag (rename-class-attr attrs) sub event]))
+
+
+;;----------------------------------------------------------------------
+;; Button Controls
+;;----------------------------------------------------------------------
+(defn- button-view*
+  "assuming content is a string."
+  [tag attrs content busy-sub]
+  (let [busy? (if busy-sub
+                 (rf/subscribe (u/as-vector busy-sub))
+                 (atom false))]
+    (fn [tag attrs content _ _]
+      (let [new-attrs (if @busy?
+                        (assoc attrs :disabled true)
+                        (dissoc attrs :disabled))
+            class-name (cond-> (:class new-attrs)
+                         @busy? (compute-class #{"button--busy"}))
+            new-attrs (assoc new-attrs :class class-name)]
+        ;(log/infof "new-attrs: %s, content: %s" new-attrs content)
+        [tag new-attrs content]))))
+
+(defn button
+  "kioo style function tailored after (k/substitute ...)"
+  ([event]
+   (button nil event))
+  ([busy-sub event]
+   (button busy-sub event {}))
+  ([busy-sub event opts]
+   (fn [{:keys [tag attrs] :as node}]
+     (let [button-content (or (:content opts) (ensure-simple-content node))
+           event (u/as-vector event)
+           attrs (-> (rename-class-attr attrs)
+                     (assoc :on-click #(rf/dispatch event)))]
+       [button-view* tag attrs button-content busy-sub opts]))))
+
+
+;;----------------------------------------------------------------------
+;; Select Controls
+;;----------------------------------------------------------------------
+(defn- select-view*
+  [tag attrs options-sub selected-sub {:keys [description] :or {description "Select"} :as opts}]
   (let [selected (rf/subscribe (u/as-vector selected-sub))
         options (rf/subscribe (u/as-vector options-sub))]
-    (fn [view selected-sub options-sub attrs-map events-map select-description]
-      (let [option-tags (map (fn [{:keys [id name]}]
-                               [:option {:key id :value id} name])
-                             @options)
-            option-tags (conj option-tags [:option {:key -1 :value -1 :disabled true} select-description])
-            ;; to handle boolean false
-            opt-value (if (some? @selected) @selected -1)]
-        ;(log/infof "selected: %s, opt-value: %s" @selected opt-value)
-        [view
-         (merge attrs-map events-map {:value opt-value})
-         option-tags]))))
+    (fn [tag attrs _ _]
+      (let [options-tags (map (fn [{:keys [id name]}]
+                                [:option {:key id :value id} name])
+                              @options)
+            options-tags (conj options-tags [:option {:key -1 :value -1 :disabled true} description])
+            select-val @selected
+            select-value (if (nil? select-val) -1 select-val)]
+        [tag (assoc attrs :value select-value) options-tags]))))
 
 (defn select
-  "options-sub should yield a seq of  maps with keys :id and :name."
-  ([options-sub selected-sub selection-event]
-   (select options-sub selected-sub selection-event "Select"))
-  ([options-sub selected-sub selection-event select-description]
-   [rf-select :select options-sub selected-sub {} {:on-change #(rf/dispatch (conj (u/as-vector selection-event) (dom/event-value %)))} select-description]))
+  ([options-sub selected-sub event]
+   (select options-sub selected-sub event {}))
+  ([options-sub selected-sub event opts]
+   (fn [{:keys [tag attrs] :as node}]
+     (let [attrs (-> (rename-class-attr attrs)
+                     (assoc :on-change (new-on-change-handler event dom/event-value)))]
+       [select-view* tag attrs options-sub selected-sub opts]))))
 
-;;--- Google Places / Address Suggest
-(defsnippet places-autocomplete* "templates/e85th/ui/rf/inputs.html" [:div.places-autocomplete]
-  [element-id display-address-ratom]
-  {[:input] (k/do->
-             (k/set-attr :id element-id :value @display-address-ratom)
-             (k/listen :on-change #(reset! display-address-ratom (dom/event-value %))))})
 
-(defn places-autocomplete-cb
-  ""
-  [display-address-ratom on-change]
-  (let [element-id (str (gensym "places-autocomplete-"))]
+(defn- on-file-selected
+  [js-event rf-event]
+  (when-let [file (dom/event-target-file js-event)]
+    (rf/dispatch (conj rf-event file)))
+  ;; need to clear the selected value, so that it's clickable again
+  ;(set! (.-value element) "")
+  )
+
+;;----------------------------------------------------------------------
+;; File Input
+;;----------------------------------------------------------------------
+;; https://coderwall.com/p/uer3ow/total-input-type-file-style-control-with-pure-css
+(defn file-view*
+  [tag attrs busy-sub opts]
+  (let [busy? (if busy-sub
+                (rf/subscribe (u/as-vector busy-sub))
+                (atom false))]
+    (fn [_ _ _ _]
+      [tag attrs]
+      (let [new-attrs (if @busy?
+                        (assoc attrs :disabled true)
+                        (dissoc attrs :disabled))
+            class-name (cond-> (:class new-attrs)
+                         @busy? (compute-class #{"file-input--busy"}))
+            new-attrs (assoc new-attrs :class class-name)]
+        ;(log/infof "new-attrs: %s, busy?: %s" new-attrs @busy?)
+        [tag new-attrs]))))
+
+
+(defn file
+  ([event]
+   (file nil event))
+  ([sub event]
+   (file sub event {}))
+  ([sub event opts]
+   (fn [{:keys [tag attrs] :as node}]
+     (let [event (u/as-vector event)
+           attrs (-> (rename-class-attr attrs)
+                     (assoc :on-change (fn [e]
+                                         (on-file-selected e event))))]
+       [file-view* tag attrs sub opts]))))
+
+
+;;----------------------------------------------------------------------
+;; Places Autocomplete
+;;----------------------------------------------------------------------
+(defn- gpv
+  [tag attrs display-ratom]
+  [tag (assoc attrs :value @display-ratom)])
+
+(defn google-places-view*
+  "Uses a reagent ratom itself for changes to the input field otherwise there's
+   a perceptible delay when dispatching an event over requestAnimationFrame"
+  [tag attrs sub event]
+  (let [element-id (or (:id attrs)
+                       (str (gensym "places-autocomplete-")))
+        sub-val (rf/subscribe (u/as-vector sub))
+        ;; display-ratom acts as a common place to reflect subscription value
+        ;; and do a quick update to the UI w/o re-frame dispatch
+        display-ratom (reagent/atom "")
+        on-change (fn [e]
+                    ;(log/infof "on-change handler called")
+                    (reset! display-ratom (dom/event-value e))) ; update right now, don't give to re-frame
+        attrs (assoc attrs :on-change on-change :id element-id)]
     (reagent/create-class
      {:display-name "places-autocomplete"
-      :reagent-render (fn [display-address-ratom on-change]
-                        ;(log/infof "places autocomplete rendered")
-                        [places-autocomplete* element-id display-address-ratom])
-      :component-did-mount (fn []
-                             ;(log/infof "places autocomplete mounted")
-                             (let [autocomplete (places/new-autocomplete element-id)
-                                   handler #(on-change (places/parse-selected-place autocomplete))]
-                               (places/add-autocomplete-listener autocomplete handler)))})))
+      :reagent-render
+      (fn [_ _ _ _]
+        ;; deref sub here so that, this fn gets called on changes
+        (reset! display-ratom @sub-val)
+        ;; Do *NOT* deref the display-ratom in this function
+        ;; if display-ratom is derefed here, then the previous reset runs
+        ;; and the UI seems incapable of being edited
+        [gpv tag attrs display-ratom])
 
-(defn places-autocomplete
-  " "
+      :component-did-mount
+      (fn []
+        (let [autocomplete (places/new-autocomplete element-id) ; need to dispose?
+              handler #(dispatch-event event (places/parse-selected-place autocomplete))]
+          (places/add-autocomplete-listener autocomplete handler)))})))
+
+(defn google-places
   [sub event]
-  (let [v (rf/subscribe (u/as-vector sub))]
-    (fn [sub event]
-      [places-autocomplete-cb (reagent/atom @v) #(dispatch-event event %)])))
+  (fn [{:keys [tag attrs] :as node}]
+    ;(log/infof "handle google places inner: %s" attrs)
+    (let [attrs (rename-class-attr attrs)]
+      [google-places-view* tag attrs sub event])))
+
+
+
+
 
 ;;-- Date Picker
 (defn date-picker-cb
@@ -417,112 +486,56 @@
                               (reset! taggle (js/Taggle. element-id
                                                          (clj->js (merge opts {:tags (or @tags [])})))))}))))
 
-(defn init-awesomplete
-  ([dom-selector awesomplete-atom display->item-atom selection-event on-select-fn]
-   (init-awesomplete dom-selector awesomplete-atom display->item-atom selection-event on-select-fn (constantly nil)))
-  ([dom-selector awesomplete-atom display->item-atom selection-event on-select-fn post-select-fn]
-   (init-awesomplete dom-selector awesomplete-atom display->item-atom selection-event on-select-fn (constantly nil) {}))
-  ([dom-selector awesomplete-atom display->item-atom selection-event on-select-fn post-select-fn awesomplete-opts]
-   (log/infof "awesomplete-opts %s" awesomplete-opts)
-   (reset! awesomplete-atom (js/Awesomplete. (.querySelector js/document dom-selector) (clj->js awesomplete-opts)))
-   (.on (js/$ dom-selector) "awesomplete-selectcomplete" (fn [e]
-                                                           (let [selected (dom/event-value e)
-                                                                 selection (@display->item-atom selected)]
-                                                             (if selection-event
-                                                               (dispatch-event selection-event selection)
-                                                               (on-select-fn selection))
-                                                             (post-select-fn))))))
-(defn awesomplete
-  "opts can have keys :format-fn a one arity function to format the suggestions.
-   It can have a placeholder as well."
-  [suggestions-sub text-changed-event selection-event {:keys [format-fn placeholder clear-input-on-select? opts] :or {format-fn identity
-                                                                                                                      placeholder "Search.."
-                                                                                                                      clear-input-on-select? false
-                                                                                                                      opts {}}}]
-  (log/infof "opts: %s" opts)
-  (let [dom-id (str (gensym "awesomplete-"))
-        dom-sel (str "#" dom-id)
-        awesomplete-atom (atom nil)
-        suggestions (rf/subscribe (u/as-vector suggestions-sub))
-        display->item (atom {})
-        display-ratom (reagent/atom "")
-        on-change-fn (fn [e]
-                       (let [text (dom/event-value e)]
-                         (reset! display-ratom text)
-                         (dispatch-event text-changed-event text)))]
-    (reagent/create-class
-     {:display-name "awesomplete"
-      :reagent-render (fn [_ _ _ _]
-                        (let [suggested-items @suggestions]
-                          (when (and @awesomplete-atom suggested-items)
-                            (reset! display->item (reduce (fn [ans x]
-                                                            (assoc ans (format-fn x) x))
-                                                          {}
-                                                          suggested-items))
-                            (set! (.-list @awesomplete-atom) (clj->js (keys @display->item)))))
-                        [:input {:id dom-id
-                                 :value @display-ratom
-                                 :placeholder placeholder
-                                 :on-change on-change-fn}])
-      :component-did-mount (fn []
-                             (init-awesomplete dom-sel awesomplete-atom display->item selection-event nil (fn []
-                                                                                                            (when clear-input-on-select?
-                                                                                                              (reset! display-ratom "")))
-                                               opts))
-      :component-will-unmount (fn []
-                                (some->> @awesomplete-atom .destroy))})))
+;; (defn tag-editor-suggester
+;;   "NB. tag-added-event fires twice when suggestion is made. Will have to fix. "
+;;   [tags-sub suggestions-sub text-changed-event tag-added-event tag-removed-event format-fn]
+;;   (let [element-id (str (gensym "tag-editor-"))
+;;         awesomplete (atom nil)
+;;         taggle-input-sel (str "#" element-id " .taggle_input")
+;;         suggestions (rf/subscribe (u/as-vector suggestions-sub))
+;;         display->item (atom {})
+;;         taggle (atom nil)
+;;         tags (rf/subscribe (u/as-vector tags-sub))
+;;         opts {:onTagAdd (fn [e tag]
+;;                           (dispatch-event tag-added-event tag {:suggestion? false}))
+;;               :onTagRemove (fn [event tag]
+;;                              (dispatch-event tag-removed-event tag))}]
 
+;;     (reagent/create-class
+;;      {:display-name "tag-editor"
+;;       :reagent-render (fn [_ _ _ _ _ _]
+;;                         (let [suggested-items @suggestions]
+;;                           ;(log/infof "suggested-items: %s, display->item: %s" suggested-items @display->item)
+;;                           ;(log/infof "awesomplete is: %s" @awesomplete)
+;;                           (when (and @awesomplete suggested-items)
+;;                             (reset! display->item (reduce (fn [ans x]
+;;                                                             (assoc ans (format-fn x) x))
+;;                                                           {}
+;;                                                           suggested-items))
+;;                             (log/infof "display-item keys: %s" (keys @display->item))
+;;                             (set! (.-list @awesomplete) (clj->js (or (keys @display->item)
+;;                                                                      []))))
 
-(defn tag-editor-suggester
-  "NB. tag-added-event fires twice when suggestion is made. Will have to fix. "
-  [tags-sub suggestions-sub text-changed-event tag-added-event tag-removed-event format-fn]
-  (let [element-id (str (gensym "tag-editor-"))
-        awesomplete (atom nil)
-        taggle-input-sel (str "#" element-id " .taggle_input")
-        suggestions (rf/subscribe (u/as-vector suggestions-sub))
-        display->item (atom {})
-        taggle (atom nil)
-        tags (rf/subscribe (u/as-vector tags-sub))
-        opts {:onTagAdd (fn [e tag]
-                          (dispatch-event tag-added-event tag {:suggestion? false}))
-              :onTagRemove (fn [event tag]
-                             (dispatch-event tag-removed-event tag))}]
-
-    (reagent/create-class
-     {:display-name "tag-editor"
-      :reagent-render (fn [_ _ _ _ _ _]
-                        (let [suggested-items @suggestions]
-                          ;(log/infof "suggested-items: %s, display->item: %s" suggested-items @display->item)
-                          ;(log/infof "awesomplete is: %s" @awesomplete)
-                          (when (and @awesomplete suggested-items)
-                            (reset! display->item (reduce (fn [ans x]
-                                                            (assoc ans (format-fn x) x))
-                                                          {}
-                                                          suggested-items))
-                            (log/infof "display-item keys: %s" (keys @display->item))
-                            (set! (.-list @awesomplete) (clj->js (or (keys @display->item)
-                                                                     []))))
-
-                          ;(log/infof "tags: %s" @tags)
-                          (when @taggle
-                            ;; NB. tried doing setOptions but that doesn't seem to update the tags in the view.
-                            (.add @taggle (clj->js (or @tags []))))
-                          [:div {:id element-id :class "tag-container"}]))
-      :component-did-mount (fn []
-                             (reset! taggle (js/Taggle. element-id (clj->js (assoc opts :tags (or @tags [])))))
-                             (-> js/document
-                                 (.querySelector taggle-input-sel)
-                                 (.addEventListener "keypress" (fn [e]
-                                                                 (let [key-value (dom/key-event-value e)
-                                                                       key-target-value (dom/event-target-value e)
-                                                                       new-value (str key-target-value key-value)]
-                                                                   (dispatch-event text-changed-event new-value)))))
-                             (init-awesomplete taggle-input-sel
-                                                awesomplete
-                                                display->item
-                                                nil
-                                                (fn [x]
-                                                  (dispatch-event tag-added-event x {:suggestion? true}))))})))
+;;                           ;(log/infof "tags: %s" @tags)
+;;                           (when @taggle
+;;                             ;; NB. tried doing setOptions but that doesn't seem to update the tags in the view.
+;;                             (.add @taggle (clj->js (or @tags []))))
+;;                           [:div {:id element-id :class "tag-container"}]))
+;;       :component-did-mount (fn []
+;;                              (reset! taggle (js/Taggle. element-id (clj->js (assoc opts :tags (or @tags [])))))
+;;                              (-> js/document
+;;                                  (.querySelector taggle-input-sel)
+;;                                  (.addEventListener "keypress" (fn [e]
+;;                                                                  (let [key-value (dom/key-event-value e)
+;;                                                                        key-target-value (dom/event-target-value e)
+;;                                                                        new-value (str key-target-value key-value)]
+;;                                                                    (dispatch-event text-changed-event new-value)))))
+;;                              (init-awesomplete taggle-input-sel
+;;                                                 awesomplete
+;;                                                 display->item
+;;                                                 nil
+;;                                                 (fn [x]
+;;                                                   (dispatch-event tag-added-event x {:suggestion? true}))))})))
 
 
 (defn if-view
@@ -534,37 +547,3 @@
        (if (true? @cond-val)
          true-view
          false-view)))))
-
-
-(defsnippet file-input-button* "templates/e85th/ui/rf/inputs.html" [:span.file-input-button]
-  [dom-id attrs-map events-map content busy?]
-  {[:input] (set-attrs-and-events attrs-map events-map)
-   [:label] (k/do->
-             (k/set-attr :for dom-id)
-             (k/content content))
-   [:.busy-indicator] (if busy?
-                        identity
-                        (k/substitute ""))})
-
-(defn rf-file-input
-  ([view event content]
-   (rf-file-input view nil event content))
-  ([view busy-sub event content]
-   (let [dom-id (str (gensym "file-input-"))
-         on-file (fn [event]
-                   (let [element (dom/element-by-id dom-id)
-                         file (some-> element .-files (.item 0))]
-                     (when file
-                       (rf/dispatch (-> event u/as-vector (conj file))))
-                     (set! (.-value element) "")))
-         busy? (if busy-sub
-                 (rf/subscribe (u/as-vector busy-sub))
-                 (atom false))]
-     (fn [view busy-sub event content]
-       [view dom-id {:disabled @busy? :id dom-id} {:on-change #(on-file event)} content @busy?]))))
-
-(defn file-input
-  ([event content]
-   (file-input nil event content))
-  ([sub event content]
-   [rf-file-input file-input-button* sub event content]))

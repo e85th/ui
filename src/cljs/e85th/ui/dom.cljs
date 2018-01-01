@@ -10,6 +10,15 @@
   [e]
   (-> e .-target .-value))
 
+(defn event-target-file-list
+  [e]
+  (-> e .-target .-files))
+
+(defn event-target-file
+  "first selected file"
+  [e]
+  (-> e event-target-file-list (.item 0)))
+
 (defn event-checked
   "reads the event target's checked property"
   [e]
