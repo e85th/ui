@@ -116,7 +116,7 @@
     (string? v) (assoc attrs :value v)
     (map? v) (-> (merge attrs v)
                  (assoc :value (:value v ""))
-                 (handle-classes v))
+                 handle-classes)
     :else (throw (ex-info "Unknown type." {:v v :type (type v)}))))
 
 (defn- text-view*
@@ -205,10 +205,10 @@
       (let [options-tags (map (fn [{:keys [id name]}]
                                 [:option {:key id :value id} name])
                               @options)
-            option-tags (conj option-tags [:option {:key -1 :value -1 :disabled true} description])
+            options-tags (conj options-tags [:option {:key -1 :value -1 :disabled true} description])
             select-val @selected
             select-value (if (nil? select-val) -1 select-val)]
-        [tag (assoc attrs :value select-value) option-tags]))))
+        [tag (assoc attrs :value select-value) options-tags]))))
 
 (defn select
   ([options-sub selected-sub event]
