@@ -42,6 +42,12 @@
   [s]
   (js/encodeURIComponent s))
 
+
+(defn params->query-string
+  [m]
+  (str/join "&" (for [[k v] m]
+                  (str (name k) "=" (url-encode v)))))
+
 (def format gs/format)
 
 (defn unescape-html-entities

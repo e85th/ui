@@ -6,7 +6,6 @@
             [taoensso.timbre :as log]
             [kioo.reagent :as k :refer-macros [defsnippet deftemplate]]
             [devcards.core :as d :refer-macros [defcard defcard-rg]]
-            [e85th.ui.places :as places]
             [e85th.ui.rf.multi-select :as ms]
             [e85th.ui.rf.paginator :as paginator]
             [e85th.ui.dom :as dom]
@@ -18,11 +17,7 @@
             [clojure.set :as set])
   (:import [goog.i18n DateTimeFormat DateTimeParse]
            [goog.ui InputDatePicker]
-           [goog.date Date DateTime]
-           [goog.ui.ac Remote]
-           [goog.fx DragListGroup DragListDirection]))
-
-(def input-html "templates/e85th/ui/rf/inputs.html")
+           [goog.date Date DateTime]))
 
 (defn dispatch-event
   [rf-event event-value & args]
@@ -33,14 +28,14 @@
   (fn [e]
     (dispatch-event rf-event (event-reader-fn e))))
 
-(defn- rename-class-attr
+(defn rename-class-attr
   "attrs is a map of attrs from kioo"
   [{:keys [className] :as attrs}]
   (-> attrs
       (assoc :class className)
       (dissoc :className)))
 
-(defn- compute-class
+(defn compute-class
   "Computes the value of the class attr based on existing value
    and classes being added and removed"
   ([css-class classes-to-add]
@@ -53,7 +48,7 @@
           (set/union (set classes-to-add))
           (str/join " ")))))
 
-(defn- handle-classes
+(defn handle-classes
   [{:keys [add-classes remove-classes] :as attrs}]
   (cond-> attrs
     (or add-classes remove-classes)
@@ -165,7 +160,7 @@
 ;;----------------------------------------------------------------------
 (defn- button-view*
   "assuming content is a string."
-  [tag attrs content busy-sub]
+  [tag attrs content busy-sub opts]
   (let [busy? (if busy-sub
                  (rf/subscribe (u/as-vector busy-sub))
                  (atom false))]
@@ -176,7 +171,7 @@
             class-name (cond-> (:class new-attrs)
                          @busy? (compute-class #{"button--busy"}))
             new-attrs (assoc new-attrs :class class-name)]
-        ;(log/infof "new-attrs: %s, content: %s" new-attrs content)
+        ;(log/infof "new-attrs: %s, content: %s, busy: %s" new-attrs content @busy?)
         [tag new-attrs content]))))
 
 (defn button
@@ -261,56 +256,6 @@
                      (assoc :on-change (fn [e]
                                          (on-file-selected e event))))]
        [file-view* tag attrs sub opts]))))
-
-
-;;----------------------------------------------------------------------
-;; Places Autocomplete
-;;----------------------------------------------------------------------
-(defn- gpv
-  [tag attrs display-ratom]
-  [tag (assoc attrs :value @display-ratom)])
-
-(defn google-places-view*
-  "Uses a reagent ratom itself for changes to the input field otherwise there's
-   a perceptible delay when dispatching an event over requestAnimationFrame"
-  [tag attrs sub event]
-  (let [element-id (or (:id attrs)
-                       (str (gensym "places-autocomplete-")))
-        sub-val (rf/subscribe (u/as-vector sub))
-        ;; display-ratom acts as a common place to reflect subscription value
-        ;; and do a quick update to the UI w/o re-frame dispatch
-        display-ratom (reagent/atom "")
-        on-change (fn [e]
-                    ;(log/infof "on-change handler called")
-                    (reset! display-ratom (dom/event-value e))) ; update right now, don't give to re-frame
-        attrs (assoc attrs :on-change on-change :id element-id)]
-    (reagent/create-class
-     {:display-name "places-autocomplete"
-      :reagent-render
-      (fn [_ _ _ _]
-        ;; deref sub here so that, this fn gets called on changes
-        (reset! display-ratom @sub-val)
-        ;; Do *NOT* deref the display-ratom in this function
-        ;; if display-ratom is derefed here, then the previous reset runs
-        ;; and the UI seems incapable of being edited
-        [gpv tag attrs display-ratom])
-
-      :component-did-mount
-      (fn []
-        (let [autocomplete (places/new-autocomplete element-id) ; need to dispose?
-              handler #(dispatch-event event (places/parse-selected-place autocomplete))]
-          (places/add-autocomplete-listener autocomplete handler)))})))
-
-(defn google-places
-  [sub event]
-  (fn [{:keys [tag attrs] :as node}]
-    ;(log/infof "handle google places inner: %s" attrs)
-    (let [attrs (rename-class-attr attrs)]
-      [google-places-view* tag attrs sub event])))
-
-
-
-
 
 ;;-- Date Picker
 (defn date-picker-cb
