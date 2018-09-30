@@ -8,25 +8,24 @@
 
 (defsnippet paginator* "templates/e85th/ui/rf/paginator.html" [:.paginator]
   [{:keys [current-page total-pages first-page? last-page?]} on-page-cb]
-  {[:.paginator-first-page] (if first-page?
-                              (k/set-attr :disabled true)
-                              (k/listen :on-click #(on-page-cb 1)))
-   [:.paginator-prev-page] (if first-page?
-                             (k/set-attr :disabled true)
-                             (k/listen :on-click #(on-page-cb (dec current-page))))
-   [:.paginator-next-page] (if last-page?
-                             (k/set-attr :disabled true)
-                             (k/listen :on-click #(on-page-cb (inc current-page))))
-   [:.paginator-last-page] (if total-pages
-                             (if last-page?
+  {[:.paginator__first-page] (if first-page?
                                (k/set-attr :disabled true)
-                               (k/listen :on-click #(on-page-cb total-pages)))
-                             (k/substitute ""))
-   [:.paginator-current-page] (k/content current-page)
-   [:.paginator-total-pages] (if total-pages
-                               (k/content (str " of " total-pages))
-                               (k/substitute ""))})
-
+                               (k/listen :on-click #(on-page-cb 1)))
+   [:.paginator__previous-page] (if first-page?
+                                  (k/set-attr :disabled true)
+                                  (k/listen :on-click #(on-page-cb (dec current-page))))
+   [:.paginator__next-page] (if last-page?
+                              (k/set-attr :disabled true)
+                              (k/listen :on-click #(on-page-cb (inc current-page))))
+   [:.paginator__last-page] (if total-pages
+                              (if last-page?
+                                (k/set-attr :disabled true)
+                                (k/listen :on-click #(on-page-cb total-pages)))
+                              (k/substitute ""))
+   [:.paginator__current-page] (k/content current-page)
+   [:.paginator__total-pages] (if total-pages
+                                (k/content (str " of " total-pages))
+                                (k/substitute ""))})
 
 (defn paginator
   "Displays a paginator. The sub should return a map with required key :current-page.

@@ -1,0 +1,25 @@
+{:paths ["src/clj" "src/cljs" "src/cljc" "resources"]
+ :deps
+ {org.clojure/clojure                          {:mvn/version "1.9.0"   :scope "provided"}
+  org.clojure/clojurescript                    {:mvn/version "1.10.339" :scope "provided"}
+  com.google.guava/guava                       {:mvn/version "23.1-jre"}
+  org.clojure/core.async                       {:mvn/version "0.3.443"} ;; override sente version for spec ns
+  com.taoensso/timbre                          {:mvn/version "4.10.0"} ;explicitly include for dep hell
+  e85th/commons                                {:git/url "https://github.com/e85th/commons"
+                                                :sha "eaffa137fa1c865ee13f02ed100f11917e859c01"}
+  re-frame                                     {:mvn/version "0.10.2"}
+  com.cemerick/url                             {:mvn/version "0.1.1"}
+  com.taoensso/sente                           {:mvn/version "1.11.0"}
+  funcool/hodgepodge                           {:mvn/version "0.1.4"}
+  com.andrewmcveigh/cljs-time                  {:mvn/version "0.5.1"}
+  hipo                                         {:mvn/version "0.5.2"}
+  cljs-ajax                                    {:mvn/version "0.7.2"}
+  kioo                                         {:mvn/version "0.5.0"}
+  devcards                                     {:mvn/version "0.2.4"}}
+
+ :aliases
+ {:compile
+  {:extra-paths ["target" "resources"]
+   :extra-deps
+   {com.bhauman/figwheel-main {:mvn/version "0.1.9"}
+    com.bhauman/rebel-readline-cljs {:mvn/version "0.1.4"}}}}}

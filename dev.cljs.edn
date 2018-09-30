@@ -1,0 +1,2 @@
+^{:watch-dirs ["src/cljs" "src/cljc"]}
+{:output-to "target/public/compiled/app.js"}
