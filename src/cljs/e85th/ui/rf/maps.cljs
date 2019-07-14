@@ -14,47 +14,40 @@
 ;; Places Autocomplete
 ;;----------------------------------------------------------------------
 (defn- gpv
-  [tag attrs display-ratom]
-  [tag (assoc attrs :value @display-ratom)])
+  [attrs display-ratom]
+  [:input (assoc attrs :value @display-ratom)])
 
-(defn google-places-view*
+(defn google-places
   "Uses a reagent ratom itself for changes to the input field otherwise there's
    a perceptible delay when dispatching an event over requestAnimationFrame"
-  [tag attrs sub event]
-  (let [element-id (or (:id attrs)
+  [attrs opts]
+  (let [sub (-> opts :sub u/as-vector rf/subscribe)
+        event (:on-selection opts)
+        element-id (or (:id attrs)
                        (str (gensym "places-autocomplete-")))
-        sub-val (rf/subscribe (u/as-vector sub))
         ;; display-ratom acts as a common place to reflect subscription value
         ;; and do a quick update to the UI w/o re-frame dispatch
         display-ratom (reagent/atom "")
         on-change (fn [e]
-                    ;(log/infof "on-change handler called")
+                    ;;(log/infof "on-change handler called")
                     (reset! display-ratom (dom/event-value e))) ; update right now, don't give to re-frame
         attrs (assoc attrs :on-change on-change :id element-id)]
     (reagent/create-class
      {:display-name "places-autocomplete"
       :reagent-render
-      (fn [_ _ _ _]
+      (fn [_ _]
         ;; deref sub here so that, this fn gets called on changes
-        (reset! display-ratom @sub-val)
+        (reset! display-ratom @sub)
         ;; Do *NOT* deref the display-ratom in this function
         ;; if display-ratom is derefed here, then the previous reset runs
         ;; and the UI seems incapable of being edited
-        [gpv tag attrs display-ratom])
+        [gpv attrs display-ratom])
 
       :component-did-mount
       (fn []
         (let [autocomplete (places/new-autocomplete element-id) ; need to dispose?
               handler #(i/dispatch-event event (places/parse-selected-place autocomplete))]
           (places/add-autocomplete-listener autocomplete handler)))})))
-
-(defn google-places
-  [sub event]
-  (fn [{:keys [tag attrs] :as node}]
-    ;(log/infof "handle google places inner: %s" attrs)
-    (let [attrs (i/rename-class-attr attrs)]
-      [google-places-view* tag attrs sub event])))
-
 
 ;;------------------------------------------------------------------------
 ;; Embedded Google Map

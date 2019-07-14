@@ -6,23 +6,51 @@
   (-> (js/firebase.auth)
       (.onAuthStateChanged on-user)))
 
+
 (defn get-token
   [user on-token]
   (-> user
-      .getToken
+      .getIdToken
       (.then on-token)))
+
+(defn user->map
+  [user]
+  {:name user.name
+   :email user.email
+   :meta-data {:creation-time user.metadata.creationTime
+               :last-sign-in-time user.metadata.lastSignInTime}
+   :photo-url user.photoURL
+   :uid user.uid})
 
 (defn current-user-info
   "on-user is invoked nil if user is not logged in via firebase.
-   otherwise a map of keys :name, :email, :photo-url, :uid and :token.
+   otherwise a map of keys :name, :email, :photo-url, :uid and :firebase/id-token.
    token can be used to authorize user to the app."
   [on-user]
-  (current-user (fn [u]
-                  (if-not u
+  (current-user (fn [user]
+                  (if-not user
                     (on-user nil)
-                    (let [ans {:name u.name
-                               :email u.email
-                               :photo-url u.photoURL
-                               :uid u.uid}]
-                      (get-token u (fn [token]
-                                     (on-user (assoc ans :token token)))))))))
+                    (let [ans (user->map user)]
+                      (get-token user (fn [token]
+                                        (on-user (assoc ans :firebase/id-token token)))))))))
+
+(defn on-id-token-changed
+  "Triggered on login logout, token refresh"
+  [on-change]
+  (-> (js/firebase.auth)
+      (.onIdTokenChanged (fn [user]
+                           (if-not user
+                             (on-change nil)
+                             (let [ans (user->map user)]
+                               (get-token user (fn [token]
+                                              (on-change (assoc ans :firebase/id-token token))))))))))
+
+
+;; for determining if user signed up through UserCredential.additionalUserInfo.isNewUser
+#_(defn sign-in-with-credential
+  "Triggered when a user creates an account."
+  [credential]
+  (-> (js/firebase.auth)
+      (.signInWithCredential credential)
+      (.then))
+  )

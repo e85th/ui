@@ -1,4 +1,4 @@
-{:paths ["src/clj" "src/cljs" "src/cljc" "resources"]
+{:paths ["src/cljs" "src/cljc" "resources"]
  :deps
  {org.clojure/clojure                          {:mvn/version "1.9.0"   :scope "provided"}
   org.clojure/clojurescript                    {:mvn/version "1.10.339" :scope "provided"}
@@ -14,7 +14,7 @@
   com.andrewmcveigh/cljs-time                  {:mvn/version "0.5.1"}
   hipo                                         {:mvn/version "0.5.2"}
   cljs-ajax                                    {:mvn/version "0.7.2"}
-  kioo                                         {:mvn/version "0.5.0"}
+  ;; kioo                                         {:mvn/version "0.5.0"}
   devcards                                     {:mvn/version "0.2.4"}}
 
  :aliases

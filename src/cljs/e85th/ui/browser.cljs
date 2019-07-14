@@ -1,7 +1,6 @@
 (ns e85th.ui.browser
   (:require [goog.net.cookies]
             [e85th.ui.util :as u]
-            [cemerick.url :as url]
             [taoensso.timbre :as log]
             [clojure.walk :as walk]))
 
@@ -55,7 +54,17 @@
   (.-search (location)))
 
 (defn query-params
+  "Returns a map of keywords to string values."
   ([]
-   (query-params (href)))
-  ([url]
-   (walk/keywordize-keys (:query (url/url url)))))
+   (query-params (search)))
+  ([search-str]
+   (loop [m {}
+          iter (.entries (js/URLSearchParams. search-str))]
+     (let [entry (.next iter)
+           kv (.-value entry)]
+       (if (.-done entry)
+         m
+         (recur (assoc m
+                       (keyword (aget kv 0))
+                       (aget kv 1))
+                iter))))))
