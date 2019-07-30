@@ -1,4 +1,4 @@
-(ns e85th.ui.rf.awesomplete
+(ns e85th.ui.rf.awesomplete-kioo
   (:require [re-frame.core :as rf]
             [reagent.core :as reagent]
             [reagent.ratom :as ratom]

@@ -25,11 +25,13 @@
   "Turns the element-id (string) into an address autocompleter. Returns the google.maps.place.Autocomplete instance.
    You can specify a clojure map of config as described here: https://developers.google.com/places/web-service/autocomplete"
   ([element-id]
-   (let [config {:componentRestrictions {:country "us"}}]
+   ;; avoid extra costs by default by not including atmosphere and reviews etc
+   (let [config {:fields [:name :geometry.location :place_id :formatted_address]}]
      (new-autocomplete element-id config)))
   ([element-id config]
-   (let [config (clj->js config)]
-     (new google.maps.places.Autocomplete (dom/element-by-id element-id) config))))
+   (new google.maps.places.Autocomplete
+        (dom/element-by-id element-id)
+        (clj->js config))))
 
 (defn add-autocomplete-listener
   "autocomplete is the google.maps.place.Autocomplete instance and callback-fn is the no arg callback function."

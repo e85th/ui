@@ -1,4 +1,5 @@
-(ns e85th.ui.firebase)
+(ns e85th.ui.firebase
+  (:require [taoensso.timbre :as log]))
 
 (defn current-user
   "on-user is a function that takes in a user object"
@@ -39,11 +40,13 @@
   [on-change]
   (-> (js/firebase.auth)
       (.onIdTokenChanged (fn [user]
+                           (log/info "onIdTokenChanged called "  (some-> user user->map))
                            (if-not user
                              (on-change nil)
                              (let [ans (user->map user)]
                                (get-token user (fn [token]
-                                              (on-change (assoc ans :firebase/id-token token))))))))))
+                                                 (log/info "getTokenChanged called " token)
+                                                 (on-change (assoc ans :firebase/id-token token))))))))))
 
 
 ;; for determining if user signed up through UserCredential.additionalUserInfo.isNewUser

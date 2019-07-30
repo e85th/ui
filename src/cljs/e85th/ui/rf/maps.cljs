@@ -17,9 +17,11 @@
   [attrs display-ratom]
   [:input (assoc attrs :value @display-ratom)])
 
-(defn google-places
+(defn places-autocomplete
   "Uses a reagent ratom itself for changes to the input field otherwise there's
-   a perceptible delay when dispatching an event over requestAnimationFrame"
+   a perceptible delay when dispatching an event over requestAnimationFrame.
+  `opts` can contain key `:lib/opts` which are options passed directly to the
+  com.google.maps.places.Autocomplete instance."
   [attrs opts]
   (let [sub (-> opts :sub u/as-vector rf/subscribe)
         event (:on-selection opts)
@@ -45,7 +47,7 @@
 
       :component-did-mount
       (fn []
-        (let [autocomplete (places/new-autocomplete element-id) ; need to dispose?
+        (let [autocomplete (places/new-autocomplete element-id (:lib/opts opts)) ; need to dispose?
               handler #(i/dispatch-event event (places/parse-selected-place autocomplete))]
           (places/add-autocomplete-listener autocomplete handler)))})))
 
@@ -77,18 +79,14 @@
 ;;------------------------------------------------------------------------
 (def ^:const +static-map-url+ "https://maps.googleapis.com/maps/api/staticmap")
 
-(defn static-google-map*
-  [tag attrs address-sub opts]
-  (let [address (rf/subscribe (u/as-vector address-sub))]
-    (fn [_ attrs _]
+(defn static-google-map
+  [attrs {:keys [address-sub tag] :as opts
+          :or {tag :img}}]
+  (let [address (rf/subscribe (u/as-vector address-sub))
+        lib-opts (:lib/opts opts)]
+    (fn [_ _]
       (let [q @address
             url (when-not (str/blank? q)
-                  (str +static-map-url+ "?" (u/params->query-string (assoc opts :center q))))]
+                  (str +static-map-url+ "?" (u/params->query-string (assoc lib-opts :center q))))]
         [tag (cond-> attrs
                url (assoc :src url))]))))
-
-(defn static-google-map
-  [address-sub opts]
-  (fn [{:keys [tag attrs] :as node}]
-    (let [attrs (i/rename-class-attr attrs)]
-      [static-google-map* tag attrs address-sub opts])))
