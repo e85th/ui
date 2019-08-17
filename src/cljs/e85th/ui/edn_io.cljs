@@ -29,3 +29,6 @@
 ;; defined in Clojure, mostly don't care about the order of fields in code
 ;; except for debugging purposes
 (cljs.reader/register-tag-parser! 'ordered/map (partial into {}))
+(cljs.reader/register-tag-parser! 'instant
+                                  (fn [s]
+                                    (js/Date. s)))

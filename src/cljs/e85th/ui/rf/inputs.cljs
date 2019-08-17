@@ -254,3 +254,51 @@
   (let [on-click-fn (-> opts :on-click event-handler)
         attrs (merge attrs {:on-click on-click-fn})]
     [button* attrs content opts]))
+
+
+
+;;----------------------------------------------------------------------
+;; Paginator controls (table not included)
+;;----------------------------------------------------------------------
+(defn paginator*
+  [sub enrich on-click]
+  (let [{:keys [current-page total-pages first-page? last-page?]} (enrich @sub)]
+    [:ul {:class "paginator"}
+     [:li
+      [:button {:class "paginator__first-page"
+                :disabled first-page?
+                :on-click #(on-click {:page 1
+                                      :action :first-page})} "first page"]]
+     [:li
+      [:button {:class "paginator__previous-page"
+                :disabled first-page?
+                :on-click #(on-click {:page (dec current-page)
+                                      :action :previous-page})} "previous page"]]
+     [:li
+      [:span (str "Page " current-page (when total-pages
+                                         (str " of " total-pages)))]]
+     [:li
+      [:button {:class "paginator__next-page"
+                :disabled last-page?
+                :on-click #(on-click {:page (inc current-page)
+                                      :action :next-page})} "next page"]]
+     (when total-pages
+       [:li
+        [:button {:class "paginator__last-page"
+                  :disabled last-page?
+                  :on-click #(on-click {:page total-pages
+                                        :action :last-page})} "last page"]])]))
+
+(defn paginator
+  [opts]
+  (let [sub      (-> opts :sub u/as-vector rf/subscribe)
+        event    (-> opts :page-selection-event u/as-vector)
+        on-click (fn [page]
+                   (rf/dispatch (conj event page)))
+        enrich   (fn [{:keys [current-page total-pages] :or {current-page 1} :as info}]
+                   (merge
+                    info
+                    {:current-page current-page
+                     :first-page?  (= 1 current-page)
+                     :last-page?   (true? (and total-pages (= total-pages current-page)))}))]
+    [paginator* sub enrich on-click]))
