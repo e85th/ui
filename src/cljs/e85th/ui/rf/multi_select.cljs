@@ -3,7 +3,6 @@
             [taoensso.timbre :as log]
             [e85th.ui.dom :as dom]
             [e85th.ui.util :as u]
-            [devcards.core :as d :refer-macros [defcard-rg]]
             ;[kioo.reagent :as k :refer-macros [defsnippet]]
             ))
 

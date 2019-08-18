@@ -3,7 +3,6 @@
             [reagent.core :as reagent]
             [reagent.ratom :as ratom]
             [taoensso.timbre :as log]
-            [devcards.core :as d :refer-macros [defcard defcard-rg]]
             [e85th.ui.dom :as dom]
             [e85th.ui.rf.inputs :as i]
             [e85th.ui.util :as u]))
