@@ -1,7 +1,5 @@
 (ns e85th.ui.firebase-auth
-  (:require [taoensso.timbre :as log]
-            [promesa.async-cljs :refer-macros [async]]
-            [promesa.core :as p]))
+  (:require [taoensso.timbre :as log]))
 
 
 (defn auth
