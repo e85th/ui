@@ -1,0 +1,50 @@
+/*
+Chip
+
+Small informational elements.
+
+Markup:
+<div class="chip">
+  Standard
+</div>
+<div class="chip chip--light">
+  Light
+</div>
+<div class="chip">
+  Chip Delete
+  <i class="icon delete"></i>
+</div>
+
+Styleguide Chip
+*/
+
+.chip {
+  border-radius: 0.28rem;
+  font-size: 1rem;
+  padding: .10em .2em;
+  box-shadow: 0 0 0 1px rgba(34,36,38,0.15) inset;
+  cursor: pointer;
+  margin: .14rem .28rem .14rem 0;
+  display: inline-block; // don't want it to wrap on word breaks etc
+
+  .delete {
+    margin-left: 0.5em;
+    font-size:  0.9rem;
+    opacity: .5;
+
+    &:before {
+      content: "\2716"; // multiplication X
+    }
+
+    &:hover {
+      color: black;
+      font-weight: bold;
+    }
+  }
+
+  &--light {
+    color: rgba(0,0,0,0.6);
+    background-color: #e8e8e8;
+  }
+
+}

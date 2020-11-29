@@ -1,0 +1,25 @@
+{
+  "name": "e85th/ui",
+  "version": "1.0.0",
+  "description": "ClojureScript UI lib",
+  "scripts": {
+    "css": "sass src/sass/styles.scss resources/public/css/ui.css --style=compressed --no-source-map",
+    "css:watch": "sass src/sass/styles.scss resources/public/css/ui.css --watch",
+    "pattern-library": "kss --config src/sass/kss-config.json"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/e85th/ui.git"
+  },
+  "devDependencies": {
+    "kss": "3.0.1",
+    "sass": "1.29.0",
+    "shadow-cljs": "2.10.21"
+  },
+  "dependencies": {
+    "create-react-class": "15.6.3",
+    "react": "16.13.0",
+    "react-dom": "16.13.0",
+    "react-highlight.js": "1.0.7"
+  }
+}

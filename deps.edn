@@ -6,7 +6,7 @@
   org.clojure/core.async      {:mvn/version "0.3.443"} ;; override sente version for spec ns
   com.taoensso/timbre         {:mvn/version "4.10.0"}  ;explicitly include for dep hell
   e85th/commons               {:git/url "https://github.com/e85th/commons"
-                               :sha     "eaffa137fa1c865ee13f02ed100f11917e859c01"}
+                               :sha     "af41c2b1d104459f43c91ae6af64fe38af7b0f27"}
   re-frame                    {:mvn/version "0.10.2"}
   com.cemerick/url            {:mvn/version "0.1.1"}
   com.taoensso/sente          {:mvn/version "1.11.0"}

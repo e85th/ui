@@ -36,9 +36,14 @@
   [e]
   (.preventDefault e))
 
-(defn event-stop-propogation
-  [e]
-  (.stopPropogation e))
+(defn event-stop-propagation
+  [^js e]
+  (.stopPropagation e))
+
+(defn event-prevent-defaults
+  [^js e]
+  (event-prevent-default e)
+  (event-stop-propagation e))
 
 (defn key-event-code
   [e]

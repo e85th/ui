@@ -1,0 +1,10 @@
+{
+  "title": "e85th Pattern Library",
+  "source": [
+    "."
+  ],
+  "destination":  "../../resources/pattern-library/",
+  "css": [
+    "../../resources/public/css/ui.css"
+  ]
+}

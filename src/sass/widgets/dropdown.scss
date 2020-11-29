@@ -1,0 +1,52 @@
+// styles borrowed from semantic ui
+.dropdown {
+  position: relative;
+  cursor: pointer;
+  border: 1px solid rgba(34,36,38,.15);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 0.5em;
+
+  ul {
+    display: none; // by default closed
+    position: absolute;
+    top: 100%;
+    width: 100%;
+    left: 0;
+    list-style: none;
+    background: #fff;
+    box-shadow: 0 2px 3px 0 rgba(34,36,38,.15);
+    z-index: 11;
+    white-space: nowrap;
+    overflow-x: hidden;
+    overflow-y: auto;
+
+    @media only screen and (min-width: 992px) {
+      max-height: 16rem;
+    }
+    @media only screen and (min-width: 768px) {
+      max-height: 10rem;
+    }
+
+    &.open {
+      display: block;
+      transform: scale(1);
+      transition: opacity .1s ease;
+    }
+
+    li {
+      user-select: none;
+      line-height: 1.2rem;
+      padding: 0.25em;
+
+      &:hover {
+        background: #fafafa;
+      }
+    }
+  }
+}
+
+.dropdown__icon {
+  padding: 0.20em;
+}

@@ -10,3 +10,8 @@ pom.xml.asc
 .hgignore
 .hg/
 .cpcache/
+resources/pattern-library/
+.shadow-cljs/
+node_modules/
+resources/public/css/ui.css
+resources/public/css/ui.css.map
