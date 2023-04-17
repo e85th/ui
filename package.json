@@ -12,7 +12,7 @@
     "url": "git+ssh://git@github.com/e85th/ui.git"
   },
   "devDependencies": {
-    "kss": "3.0.1",
+    "kss": "3.1.0",
     "sass": "1.29.0",
     "shadow-cljs": "2.10.21"
   },
