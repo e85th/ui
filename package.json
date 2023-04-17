@@ -17,7 +17,7 @@
     "shadow-cljs": "2.10.21"
   },
   "dependencies": {
-    "create-react-class": "15.6.3",
+    "create-react-class": "15.7.0",
     "react": "16.13.0",
     "react-dom": "16.13.0",
     "react-highlight.js": "1.0.7"
